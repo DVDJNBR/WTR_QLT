@@ -207,4 +207,22 @@ marimo/_lsp/
 __marimo__/
 
 
-RESSOURCES/
+_ressources/
+_older/
+# ===================================================================
+# 🌊 Water Quality Pipeline - Terraform & Infrastructure
+# ===================================================================
+
+# Terraform files
+*.tfstate
+*.tfstate.*
+*.tfvars.backup
+.terraform/
+.terraform.lock.hcl
+tfplan
+tfplan.*
+
+# Azure CLI
+.azure/# Terr
+aform sensitive variables
+.env.terraform
