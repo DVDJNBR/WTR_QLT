@@ -209,9 +209,6 @@ __marimo__/
 
 _ressources/
 _older/
-# ===================================================================
-# 🌊 Water Quality Pipeline - Terraform & Infrastructure
-# ===================================================================
 
 # Terraform files
 *.tfstate
