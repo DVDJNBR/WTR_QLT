@@ -1,20 +1,44 @@
-variable "project_name" {
-  description = "Nom du projet, utilisé pour nommer les ressources."
-  type        = string
-}
 
+
+# 📂 RESOURCE GROUP
 variable "resource_group_name" {
-  description = "Nom du groupe de ressources."
-  type        = string
+  description = "Logical container for all pipeline resources"
+  default     = "RG_DBREAU"
 }
 
+# 📍 LOCATION
 variable "location" {
-  description = "Région Azure où déployer les ressources."
-  type        = string
+  description = "Datacenter geolocation for latency optimization"
+  default     = "francecentral"
 }
 
-variable "common_tags" {
-  description = "Tags communs à appliquer à toutes les ressources pour l'organisation et le suivi des coûts."
-  type        = map(string)
-  default     = {}
+# 🏷️ PROJECT
+variable "project_name" {
+  description = "Naming prefix for resource identification"
+  default     = "water_quality"
 }
+
+# 🌊 DATA LAKE
+variable "lake_name" {
+  description = "Globally unique storage account identifier"
+  default     = "adls4waterquality"
+}
+
+# 🧱 DATABRICKS
+variable "databricks_workspace_name" {
+  description = "Spark cluster workspace for data processing"
+  default     = "dbw-water-quality-france"
+}
+
+# 🔖 TAGS
+variable "common_tags" {
+  description = "Resource metadata for cost tracking and governance"
+  type        = map(string)
+  default = {
+    project   = "Water Quality France"
+    env       = "prod"
+    managedBy = "Terraform"
+    source    = "data.gouv.fr"
+  }
+}
+

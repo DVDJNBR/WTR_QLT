@@ -1,19 +1,21 @@
 # ===================================================================
-# ⚙️ Environment Variables Configuration
+# ⚙️ Water Quality Pipeline - Configuration Variables
 # ===================================================================
 
-# 🏷️ 
-project_name = "wtr_quality"
+# 🏷️ PROJECT
+project_name = "water_quality"
 
-# 📦 
+# 📦 RESOURCE GROUP
 resource_group_name = "RG_DBREAU"
 
-# 🌍 
-location = "westeurope"
+# 🌍 LOCATION
+location = "francecentral"
 
-# 🔖 
-common_tags = {
-  project   = "Water Quality France"
-  env       = "prod"
-  managedBy = "Terraform 🤖"
-}
+# 🌊 DATA LAKE
+lake_name = "wtrqltadls"
+
+# 🧱 DATABRICKS
+databricks_workspace_name = "wtr-qlt-dbw-v2"
+
+
+
