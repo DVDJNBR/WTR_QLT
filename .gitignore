@@ -209,9 +209,6 @@ __marimo__/
 
 _ressources/
 _older/
-# ===================================================================
-# 🌊 Water Quality Pipeline - Terraform & Infrastructure
-# ===================================================================
 
 # Terraform files
 *.tfstate
@@ -226,3 +223,6 @@ tfplan.*
 .azure/# Terr
 aform sensitive variables
 .env.terraform
+
+
+docs/
