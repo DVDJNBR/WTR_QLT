@@ -385,6 +385,27 @@ def create_cluster(c):
     console.print("  2. Compute > Create Cluster", style="white")
     console.print("  3. Use the config above", style="white")
 
+@task(name="bronze-ingestion")
+def bronze_ingestion(c):
+    """Run bronze layer data ingestion script"""
+    console.print("Running bronze layer ingestion...", style="blue")
+    
+    try:
+        result = subprocess.run(
+            "python scripts/01_bronze_ingestion.py",
+            shell=True,
+            capture_output=False
+        )
+        
+        if result.returncode == 0:
+            console.print("Bronze ingestion completed successfully", style="green")
+        else:
+            console.print("Bronze ingestion failed", style="red")
+            
+    except Exception as e:
+        console.print(f"Error running bronze ingestion: {e}", style="red")
+        logger.error(f"Bronze ingestion error: {e}")
+
 @task(name="pipeline-setup")
 def full_setup(c):
     """🎯 Complete water quality pipeline setup (Azure + env files)"""

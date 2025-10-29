@@ -223,3 +223,6 @@ tfplan.*
 .azure/# Terr
 aform sensitive variables
 .env.terraform
+
+
+docs/
