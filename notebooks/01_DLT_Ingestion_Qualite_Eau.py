@@ -64,48 +64,70 @@ total_records = 0
 logger.info("Starting ingestion...")
 
 while parsing_date <= END_DATE:
+    date_str = parsing_date.strftime("%Y-%m-%d")
+    day_after_str = day_after.strftime("%Y-%m-%d")
 
-    # API parameters - KEY: date_min and date_max must be DIFFERENT
-    params = {
-        "date_min_prelevement": parsing_date.strftime("%Y-%m-%d"),
-        "date_max_prelevement": day_after.strftime("%Y-%m-%d"),
-        "size": 20000,
-        "page": 1
-    }
+    # Pagination loop for each day
+    page = 1
+    day_records = []
 
-    try:
-        # Call API
-        response = requests.get(f"{BASE_URL}/resultats_dis", params=params, timeout=60)
-        response.raise_for_status()
+    while True:
+        # API parameters - KEY: date_min and date_max must be DIFFERENT
+        params = {
+            "date_min_prelevement": date_str,
+            "date_max_prelevement": day_after_str,
+            "size": 20000,
+            "page": page
+        }
 
-        # Get data
-        data = response.json()
-        results = data.get('data', [])
+        try:
+            # Call API
+            response = requests.get(f"{BASE_URL}/resultats_dis", params=params, timeout=60)
+            response.raise_for_status()
 
-        if results:
-            # Convert to Spark DataFrame
-            df_pandas = pd.DataFrame(results)
-            df_spark = spark.createDataFrame(df_pandas)
+            # Get data
+            data = response.json()
+            results = data.get('data', [])
 
-            # Add metadata
-            df_spark = df_spark.withColumn("ingestion_timestamp", lit(datetime.now()))
-            df_spark = df_spark.withColumn("source", lit("hubeau_api"))
-            df_spark = df_spark.withColumn("year", lit(parsing_date.year))
+            if not results:
+                # No more data for this day
+                break
 
-            # Write to Delta Lake
-            df_spark.write \
-                .format("delta") \
-                .mode("append") \
-                .partitionBy("year") \
-                .save(BRONZE_PATH)
+            day_records.extend(results)
+            logger.info(f"{date_str} page {page}: {len(results)} records")
 
-            total_records += len(results)
-            logger.info(f"{parsing_date.strftime('%Y-%m-%d')}: {len(results)} records ingested")
-        else:
-            logger.info(f"{parsing_date.strftime('%Y-%m-%d')}: 0 records")
+            # If less than 20K, it's the last page
+            if len(results) < 20000:
+                break
 
-    except Exception as e:
-        logger.error(f"Error on {parsing_date.strftime('%Y-%m-%d')}: {e}")
+            page += 1
+
+        except Exception as e:
+            logger.error(f"Error on {date_str} page {page}: {e}")
+            break
+
+    # Write all records for the day to Delta Lake
+    if day_records:
+        # Convert to Spark DataFrame
+        df_pandas = pd.DataFrame(day_records)
+        df_spark = spark.createDataFrame(df_pandas)
+
+        # Add metadata
+        df_spark = df_spark.withColumn("ingestion_timestamp", lit(datetime.now()))
+        df_spark = df_spark.withColumn("source", lit("hubeau_api"))
+        df_spark = df_spark.withColumn("year", lit(parsing_date.year))
+
+        # Write to Delta Lake
+        df_spark.write \
+            .format("delta") \
+            .mode("append") \
+            .partitionBy("year") \
+            .save(BRONZE_PATH)
+
+        total_records += len(day_records)
+        logger.info(f"{date_str}: TOTAL {len(day_records)} records ingested ({page} pages)")
+    else:
+        logger.info(f"{date_str}: 0 records")
 
     # Move to next day
     parsing_date += timedelta(days=1)
