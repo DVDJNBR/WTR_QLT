@@ -15,17 +15,24 @@
 # COMMAND ----------
 
 import sys
+import types
 
-# Disable Databricks Delta Live Tables import hook to avoid conflict with dlthub
-metas = list(sys.meta_path)
-sys.meta_path = metas[1:]
+# 1. Drop Databricks' post-import hook
+sys.meta_path = [h for h in sys.meta_path if 'PostImportHook' not in repr(h)]
 
+# 2. Purge half-initialized Delta-Live-Tables modules
+for name, module in list(sys.modules.items()):
+    if not isinstance(module, types.ModuleType):
+        continue
+    if getattr(module, '__file__', '').startswith('/databricks/spark/python/dlt'):
+        del sys.modules[name]
+
+# 3. Now import dlthub
 import dlt
 
-# Restore post import hooks
-sys.meta_path = metas
-
-print("dlthub loaded successfully!")
+print(f"dlt module loaded from: {dlt.__file__}")
+print(f"dlt has 'resource' attribute: {hasattr(dlt, 'resource')}")
+print(f"dlt has 'pipeline' attribute: {hasattr(dlt, 'pipeline')}")
 
 # COMMAND ----------
 
