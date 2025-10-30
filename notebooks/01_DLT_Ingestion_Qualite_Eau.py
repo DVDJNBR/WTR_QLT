@@ -15,32 +15,24 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 📦 Install Dependencies
-
-# COMMAND ----------
-
-# MAGIC %pip install rich requests --quiet
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC ## 🔧 Configuration & Imports
 
 # COMMAND ----------
 
 import requests
 import pandas as pd
+import logging
 from datetime import datetime, timedelta
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit, to_date
-from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn, TaskProgressColumn
-from rich.table import Table
-from rich.panel import Panel
-from rich import box
 import json
 
-console = Console()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # API Configuration
 BASE_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable"
@@ -59,12 +51,7 @@ spark.conf.set(
     ACCESS_KEY
 )
 
-console.print(Panel.fit(
-    f"[bold cyan]Configuration Loaded[/bold cyan]\n"
-    f"Storage: [yellow]{STORAGE_ACCOUNT}[/yellow]\n"
-    f"Bronze Path: [green]{BRONZE_PATH}[/green]",
-    border_style="cyan"
-))
+logger.info(f"Configuration loaded - Storage: {STORAGE_ACCOUNT}, Bronze Path: {BRONZE_PATH}")
 
 # COMMAND ----------
 
@@ -90,14 +77,14 @@ def get_last_ingested_date(bronze_path):
 
         if max_date:
             last_date = datetime.strptime(str(max_date), "%Y-%m-%d")
-            console.print(f"✓ Last ingested date: [bold green]{last_date.strftime('%Y-%m-%d')}[/bold green]")
+            logger.info(f"Last ingested date: {last_date.strftime('%Y-%m-%d')}")
             return last_date + timedelta(days=1)
         else:
-            console.print(f"ℹ No data found, starting from [bold yellow]{START_DATE.strftime('%Y-%m-%d')}[/bold yellow]")
+            logger.info(f"No data found, starting from {START_DATE.strftime('%Y-%m-%d')}")
             return START_DATE
 
     except Exception as e:
-        console.print(f"ℹ Bronze table not found, starting from [bold yellow]{START_DATE.strftime('%Y-%m-%d')}[/bold yellow]")
+        logger.info(f"Bronze table not found, starting from {START_DATE.strftime('%Y-%m-%d')}")
         return START_DATE
 
 # COMMAND ----------
@@ -151,10 +138,10 @@ def fetch_day_data(date_str, max_retries=3):
 
             except Exception as e:
                 if attempt == max_retries - 1:
-                    console.print(f"[bold red]✗[/bold red] Failed after {max_retries} attempts for {date_str}: {e}")
+                    logger.error(f"Failed after {max_retries} attempts for {date_str}: {e}")
                     return all_data
                 else:
-                    console.print(f"[yellow]⚠[/yellow] Retry {attempt + 1}/{max_retries} for {date_str}")
+                    logger.warning(f"Retry {attempt + 1}/{max_retries} for {date_str}")
 
     return all_data
 
@@ -175,64 +162,39 @@ def ingest_date_range(start_date, end_date):
     total_records = 0
     total_days = (end_date - start_date).days + 1
 
-    # Create summary table
-    summary_table = Table(
-        title="🌊 Ingestion Summary",
-        box=box.ROUNDED,
-        show_header=True,
-        header_style="bold cyan"
-    )
-    summary_table.add_column("Date", style="cyan", width=12)
-    summary_table.add_column("Records", justify="right", style="green")
-    summary_table.add_column("Status", justify="center")
+    logger.info(f"Starting ingestion from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({total_days} days)")
 
-    with Progress(
-        SpinnerColumn(),
-        "[progress.description]{task.description}",
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        console=console
-    ) as progress:
+    while current_date <= end_date:
+        date_str = current_date.strftime("%Y-%m-%d")
 
-        task = progress.add_task(
-            f"[cyan]Ingesting from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
-            total=total_days
-        )
+        # Fetch data for the day
+        day_data = fetch_day_data(date_str)
 
-        while current_date <= end_date:
-            date_str = current_date.strftime("%Y-%m-%d")
+        if day_data:
+            # Convert to Spark DataFrame
+            df_pandas = pd.DataFrame(day_data)
+            df_spark = spark.createDataFrame(df_pandas)
 
-            # Fetch data for the day
-            day_data = fetch_day_data(date_str)
+            # Add metadata columns
+            df_spark = df_spark.withColumn("ingestion_timestamp", lit(datetime.now()))
+            df_spark = df_spark.withColumn("source", lit("hubeau_api"))
+            df_spark = df_spark.withColumn("year", lit(current_date.year))
 
-            if day_data:
-                # Convert to Spark DataFrame
-                df_pandas = pd.DataFrame(day_data)
-                df_spark = spark.createDataFrame(df_pandas)
+            # Write to Delta Lake (append mode)
+            df_spark.write \
+                .format("delta") \
+                .mode("append") \
+                .partitionBy("year") \
+                .save(BRONZE_PATH)
 
-                # Add metadata columns
-                df_spark = df_spark.withColumn("ingestion_timestamp", lit(datetime.now()))
-                df_spark = df_spark.withColumn("source", lit("hubeau_api"))
-                df_spark = df_spark.withColumn("year", lit(current_date.year))
+            total_records += len(day_data)
+            logger.info(f"{date_str}: {len(day_data)} records ingested")
+        else:
+            logger.info(f"{date_str}: 0 records")
 
-                # Write to Delta Lake (append mode)
-                df_spark.write \
-                    .format("delta") \
-                    .mode("append") \
-                    .partitionBy("year") \
-                    .save(BRONZE_PATH)
+        current_date += timedelta(days=1)
 
-                total_records += len(day_data)
-                summary_table.add_row(date_str, str(len(day_data)), "✓")
-            else:
-                summary_table.add_row(date_str, "0", "○")
-
-            progress.update(task, advance=1)
-            current_date += timedelta(days=1)
-
-    console.print("\n")
-    console.print(summary_table)
+    logger.info(f"Ingestion complete: {total_records:,} total records")
 
     return total_records
 
@@ -247,26 +209,16 @@ def ingest_date_range(start_date, end_date):
 last_date = get_last_ingested_date(BRONZE_PATH)
 today = datetime.now()
 
-console.print(Panel.fit(
-    f"[bold]Ingestion Range[/bold]\n"
-    f"From: [cyan]{last_date.strftime('%Y-%m-%d')}[/cyan]\n"
-    f"To: [cyan]{today.strftime('%Y-%m-%d')}[/cyan]\n"
-    f"Days: [yellow]{(today - last_date).days + 1}[/yellow]",
-    border_style="blue"
-))
+logger.info(f"Ingestion range: {last_date.strftime('%Y-%m-%d')} to {today.strftime('%Y-%m-%d')} ({(today - last_date).days + 1} days)")
 
 # COMMAND ----------
 
 # Start ingestion
-console.print("\n[bold cyan]🌊 Starting Bronze Ingestion...[/bold cyan]\n")
+logger.info("Starting Bronze Ingestion...")
 
 total_records = ingest_date_range(last_date, today)
 
-console.print(Panel.fit(
-    f"[bold green]✓ Ingestion Complete![/bold green]\n"
-    f"Total Records: [yellow]{total_records:,}[/yellow]",
-    border_style="green"
-))
+logger.info(f"Ingestion complete! Total records: {total_records:,}")
 
 # COMMAND ----------
 
@@ -285,22 +237,10 @@ date_range = df_bronze.selectExpr(
     "max(date_prelevement) as max_date"
 ).collect()[0]
 
-# Create stats table
-stats_table = Table(
-    title="📊 Bronze Layer Statistics",
-    box=box.DOUBLE_EDGE,
-    show_header=True,
-    header_style="bold magenta"
-)
-stats_table.add_column("Metric", style="cyan")
-stats_table.add_column("Value", style="green", justify="right")
-
-stats_table.add_row("Total Records", f"{total_count:,}")
-stats_table.add_row("Date Range", f"{date_range['min_date']} → {date_range['max_date']}")
-stats_table.add_row("Storage Path", BRONZE_PATH)
-
-console.print("\n")
-console.print(stats_table)
+logger.info("=== Bronze Layer Statistics ===")
+logger.info(f"Total Records: {total_count:,}")
+logger.info(f"Date Range: {date_range['min_date']} to {date_range['max_date']}")
+logger.info(f"Storage Path: {BRONZE_PATH}")
 
 # COMMAND ----------
 
@@ -310,28 +250,20 @@ console.print(stats_table)
 # COMMAND ----------
 
 # Display schema
-console.print("\n[bold cyan]Schema:[/bold cyan]")
+logger.info("Schema:")
 df_bronze.printSchema()
 
 # COMMAND ----------
 
 # Records by year
-console.print("\n[bold cyan]Records by Year:[/bold cyan]")
+logger.info("Records by Year:")
 year_stats = df_bronze.groupBy("year").count().orderBy("year")
-
-year_table = Table(box=box.SIMPLE)
-year_table.add_column("Year", style="cyan", justify="center")
-year_table.add_column("Records", style="green", justify="right")
-
-for row in year_stats.collect():
-    year_table.add_row(str(row['year']), f"{row['count']:,}")
-
-console.print(year_table)
+year_stats.show()
 
 # COMMAND ----------
 
 # Preview recent data
-console.print("\n[bold cyan]Recent Data Sample:[/bold cyan]")
+logger.info("Recent Data Sample:")
 display(
     df_bronze.select(
         "date_prelevement",
@@ -353,11 +285,11 @@ display(
 # COMMAND ----------
 
 # Optimize Delta table for better query performance
-console.print("\n[bold cyan]🔧 Optimizing Delta Lake table...[/bold cyan]")
+logger.info("Optimizing Delta Lake table...")
 
 spark.sql(f"OPTIMIZE delta.`{BRONZE_PATH}` ZORDER BY (date_prelevement)")
 
-console.print("[bold green]✓ Optimization complete![/bold green]")
+logger.info("Optimization complete!")
 
 # COMMAND ----------
 
