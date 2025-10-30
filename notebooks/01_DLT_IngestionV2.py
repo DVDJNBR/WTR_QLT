@@ -15,7 +15,7 @@ dbutils.library.restartPython()
 # COMMAND ----------
 
 import dlt
-from dlt.sources.helpers import requests
+import requests
 from datetime import datetime, timedelta
 import logging
 
@@ -29,13 +29,11 @@ START_DATE = datetime(2021, 1, 1)
 END_DATE = datetime(2021, 1, 31)
 
 STORAGE_ACCOUNT = dbutils.secrets.get(scope="azure-credentials", key="storage-account-name")
-BRONZE2_PATH = f"abfss://bronze2@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality/hubeau"
-
 ACCESS_KEY = dbutils.secrets.get(scope="azure-credentials", key="datalake-access-key")
+
 spark.conf.set(f"fs.azure.account.key.{STORAGE_ACCOUNT}.dfs.core.windows.net", ACCESS_KEY)
 
 logger.info(f"Ingestion period: {START_DATE.date()} to {END_DATE.date()}")
-logger.info(f"Destination: {BRONZE2_PATH}")
 
 # COMMAND ----------
 
@@ -103,16 +101,35 @@ def fetch_water_quality():
 
 # COMMAND ----------
 
-pipeline = dlt.pipeline(
+from dlt import pipeline as create_pipeline
+
+pipe = create_pipeline(
     pipeline_name="hubeau_water_quality_v2",
     destination="filesystem",
-    dataset_name="bronze2_water_quality",
-    export_schema_path=BRONZE2_PATH
+    dataset_name="bronze2_water_quality"
 )
 
 logger.info("Starting DLT pipeline...")
-load_info = pipeline.run(fetch_water_quality())
+load_info = pipe.run(fetch_water_quality())
 logger.info("Pipeline completed!")
+logger.info(f"Load info: {load_info}")
+
+# COMMAND ----------
+
+# Manual write to ABFSS since DLT writes locally by default
+import pandas as pd
+
+# Get data from DLT local storage
+local_path = f".dlt/bronze2_water_quality/water_quality_hubeau"
+
+# Read and write to Azure
+df_pandas = pd.read_parquet(local_path)
+df_spark = spark.createDataFrame(df_pandas)
+
+BRONZE2_PATH = f"abfss://bronze2@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality/hubeau"
+df_spark.write.mode("overwrite").parquet(BRONZE2_PATH)
+
+logger.info(f"Data written to {BRONZE2_PATH}")
 
 # COMMAND ----------
 
@@ -120,5 +137,4 @@ df = spark.read.parquet(BRONZE2_PATH)
 record_count = df.count()
 
 logger.info(f"Validation: {record_count} records loaded")
-logger.info("Sample data:")
 df.show(5)
