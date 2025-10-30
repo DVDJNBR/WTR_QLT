@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Hub'eau Water Quality Data Ingestion (DLT Version)
+# MAGIC # Hub'eau Water Quality Data Ingestion (DLT Hub Version)
 # MAGIC
 # MAGIC Ingests water quality data from Hub'eau API to Bronze2 layer using dlthub.
 
@@ -10,11 +10,25 @@
 
 # COMMAND ----------
 
-dbutils.library.restartPython()
+# MAGIC %restart_python
 
 # COMMAND ----------
 
+import sys
+
+# Disable Databricks Delta Live Tables import hook to avoid conflict with dlthub
+metas = list(sys.meta_path)
+sys.meta_path = metas[1:]
+
 import dlt
+
+# Restore post import hooks
+sys.meta_path = metas
+
+print("dlthub loaded successfully!")
+
+# COMMAND ----------
+
 import requests
 from datetime import datetime, timedelta
 import logging
@@ -39,6 +53,9 @@ logger.info(f"Ingestion period: {START_DATE.date()} to {END_DATE.date()}")
 
 @dlt.resource(name="water_quality_hubeau", write_disposition="append")
 def fetch_water_quality():
+    """
+    DLT Hub resource that fetches water quality data day by day from Hub'eau API.
+    """
     parsing_date = START_DATE
     total_records = 0
 
@@ -109,27 +126,30 @@ pipe = create_pipeline(
     dataset_name="bronze2_water_quality"
 )
 
-logger.info("Starting DLT pipeline...")
+logger.info("Starting DLT Hub pipeline...")
 load_info = pipe.run(fetch_water_quality())
 logger.info("Pipeline completed!")
 logger.info(f"Load info: {load_info}")
 
 # COMMAND ----------
 
-# Manual write to ABFSS since DLT writes locally by default
 import pandas as pd
 
-# Get data from DLT local storage
-local_path = f".dlt/bronze2_water_quality/water_quality_hubeau"
+# Get data from DLT Hub local storage
+local_path = ".dlt/bronze2_water_quality/water_quality_hubeau"
 
-# Read and write to Azure
+logger.info(f"Reading data from {local_path}")
 df_pandas = pd.read_parquet(local_path)
+
+logger.info(f"Converting to Spark DataFrame ({len(df_pandas)} records)")
 df_spark = spark.createDataFrame(df_pandas)
 
+# Write to Azure ABFSS
 BRONZE2_PATH = f"abfss://bronze2@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality/hubeau"
-df_spark.write.mode("overwrite").parquet(BRONZE2_PATH)
+logger.info(f"Writing to {BRONZE2_PATH}")
 
-logger.info(f"Data written to {BRONZE2_PATH}")
+df_spark.write.mode("overwrite").parquet(BRONZE2_PATH)
+logger.info("Data written successfully!")
 
 # COMMAND ----------
 
@@ -137,4 +157,4 @@ df = spark.read.parquet(BRONZE2_PATH)
 record_count = df.count()
 
 logger.info(f"Validation: {record_count} records loaded")
-df.show(5)
+df.show(5, truncate=False)
