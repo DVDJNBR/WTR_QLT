@@ -2,13 +2,14 @@
 # MAGIC %md
 # MAGIC # Bronze Layer - Hub'eau Water Quality Ingestion (Delta Live Tables)
 # MAGIC
-# MAGIC Ingestion pipeline from Hub'eau API to Bronze layer using **Delta Live Tables**.
+# MAGIC Raw data ingestion from Hub'eau API to Bronze layer using **Delta Live Tables**.
+# MAGIC
+# MAGIC **Objective**: Ingest raw data without transformation (Bronze layer)
 # MAGIC
 # MAGIC **Features**:
 # MAGIC - Native Databricks DLT integration
-# MAGIC - Data quality expectations
+# MAGIC - Basic data quality checks
 # MAGIC - Automatic monitoring and lineage
-# MAGIC - Incremental ingestion support
 # MAGIC
 # MAGIC **Source**: https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable
 
@@ -32,6 +33,10 @@ logger = logging.getLogger(__name__)
 
 # API Configuration
 BASE_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable"
+
+# Ingestion period - START WITH 1 MONTH FOR TESTING
+START_DATE = datetime(2021, 1, 1)
+END_DATE = datetime(2021, 1, 31)  # Just January for testing
 
 # COMMAND ----------
 
@@ -125,7 +130,7 @@ def fetch_water_quality_data(start_date: datetime, end_date: datetime):
 
 @dlt.table(
     name="water_quality_bronze",
-    comment="Raw water quality data from Hub'eau API - Bronze layer",
+    comment="Raw water quality data from Hub'eau API - Bronze layer (no transformations)",
     table_properties={
         "quality": "bronze",
         "pipelines.autoOptimize.zOrderCols": "date_prelevement,code_commune"
@@ -135,24 +140,24 @@ def fetch_water_quality_data(start_date: datetime, end_date: datetime):
 @dlt.expect("valid_result", "resultat_numerique IS NOT NULL OR resultat_alphanumerique IS NOT NULL")
 def water_quality_bronze():
     """
-    Bronze table containing raw water quality data from Hub'eau API.
+    Bronze table: RAW data from Hub'eau API with minimal metadata.
 
-    Data quality rules:
+    NO TRANSFORMATIONS - just raw ingestion with:
+    - ingestion_timestamp: When record was ingested
+    - source: Data source identifier
+    - ingestion_year: Year for partitioning
+
+    Data quality expectations:
     - Warn if date_prelevement is missing
-    - Warn if both resultat_numerique and resultat_alphanumerique are missing
+    - Warn if both results are missing
     """
-    # Configuration for ingestion dates
-    # TODO: Make these configurable via widgets or pipeline parameters
-    START_DATE = datetime(2021, 1, 1)
-    END_DATE = datetime(2021, 12, 31)
-
-    # Fetch data from API
+    # Fetch data from API using configured date range
     records = list(fetch_water_quality_data(START_DATE, END_DATE))
 
     # Convert to Spark DataFrame
     if records:
         df = spark.createDataFrame(records)
-        logger.info(f"Created DataFrame with {len(records)} records")
+        logger.info(f"Bronze ingestion: {len(records)} records from {START_DATE.date()} to {END_DATE.date()}")
         return df
     else:
         # Return empty DataFrame with schema if no records
@@ -162,71 +167,34 @@ def water_quality_bronze():
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Bronze Enriched - Add Computed Columns
+# MAGIC ## Ingestion Metrics (Optional)
 
 # COMMAND ----------
 
 @dlt.table(
-    name="water_quality_bronze_enriched",
-    comment="Bronze data with additional computed columns for downstream processing",
-    table_properties={
-        "quality": "bronze"
-    }
+    name="bronze_ingestion_metrics",
+    comment="Ingestion metrics for monitoring - tracks volume and coverage"
 )
-@dlt.expect_all({
-    "valid_prelevement_date": "prelevement_date IS NOT NULL",
-    "valid_year": "prelevement_year BETWEEN 2020 AND 2030"
-})
-def water_quality_bronze_enriched():
+def bronze_ingestion_metrics():
     """
-    Enriched bronze table with parsed dates and computed columns.
+    Simple metrics for Bronze layer monitoring.
 
-    Adds:
-    - prelevement_date: Parsed date from date_prelevement
-    - prelevement_year: Extracted year
-    - prelevement_month: Extracted month
-    - has_numeric_result: Boolean flag for numeric results
-    """
-    return (
-        dlt.read("water_quality_bronze")
-        .withColumn("prelevement_date", to_date(col("date_prelevement")))
-        .withColumn("prelevement_year", year(col("date_prelevement")))
-        .withColumn("prelevement_month", month(col("date_prelevement")))
-        .withColumn("has_numeric_result", col("resultat_numerique").isNotNull())
-    )
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Data Quality Metrics
-
-# COMMAND ----------
-
-@dlt.table(
-    name="bronze_quality_metrics",
-    comment="Data quality metrics for bronze layer monitoring"
-)
-def bronze_quality_metrics():
-    """
-    Compute data quality metrics for monitoring and alerting.
-
-    Metrics include:
-    - Total record count
-    - Records with missing dates
-    - Records with missing results
-    - Records by year
-    - Records by source
+    Useful for:
+    - Tracking ingestion volume
+    - Verifying date coverage
+    - Monitoring data quality issues
     """
     df = dlt.read("water_quality_bronze")
 
     return df.agg(
         count("*").alias("total_records"),
-        sum(when(col("date_prelevement").isNull(), 1).otherwise(0)).alias("missing_date_count"),
-        sum(when(col("resultat_numerique").isNull(), 1).otherwise(0)).alias("missing_numeric_result_count"),
-        countDistinct("code_commune").alias("distinct_communes"),
-        countDistinct("libelle_parametre").alias("distinct_parameters"),
+        sum(when(col("date_prelevement").isNull(), 1).otherwise(0)).alias("missing_dates"),
+        sum(when(col("resultat_numerique").isNull(), 1).otherwise(0)).alias("missing_numeric_results"),
+        countDistinct("code_commune").alias("unique_communes"),
+        countDistinct("libelle_parametre").alias("unique_parameters"),
         min("date_prelevement").alias("min_date"),
-        max("date_prelevement").alias("max_date")
+        max("date_prelevement").alias("max_date"),
+        current_timestamp().alias("metrics_timestamp")
     )
 
 # COMMAND ----------
