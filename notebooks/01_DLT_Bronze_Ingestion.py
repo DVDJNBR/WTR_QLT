@@ -131,8 +131,8 @@ def fetch_water_quality_data(start_date: datetime, end_date: datetime):
         "pipelines.autoOptimize.zOrderCols": "date_prelevement,code_commune"
     }
 )
-@dlt.expect_or_warn("valid_date", "date_prelevement IS NOT NULL")
-@dlt.expect_or_warn("valid_result", "resultat_numerique IS NOT NULL OR resultat_alphanumerique IS NOT NULL")
+@dlt.expect("valid_date", "date_prelevement IS NOT NULL")
+@dlt.expect("valid_result", "resultat_numerique IS NOT NULL OR resultat_alphanumerique IS NOT NULL")
 def water_quality_bronze():
     """
     Bronze table containing raw water quality data from Hub'eau API.
