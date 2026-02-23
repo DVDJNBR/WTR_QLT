@@ -1,10 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Bronze Layer - Hub'eau Water Quality API Ingestion
+# MAGIC # Bronze Layer - Hub'Eau API Ingestion (Eau Potable)
+# MAGIC 
+# MAGIC Ingestion of Potable Water quality data:
+# MAGIC 1. Analyses (`bronze_analyses`) - from `/resultats_dis`
+# MAGIC 2. Communes (`bronze_communes`) - from `/communes_udi`
 # MAGIC
-# MAGIC Simple ingestion pipeline from Hub'eau API to Bronze Delta Lake layer.
-# MAGIC
-# MAGIC **Source**: https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable
+# MAGIC **Source V1**: https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable
 
 # COMMAND ----------
 
@@ -16,8 +18,8 @@
 import requests
 import pandas as pd
 import logging
-from datetime import datetime, timedelta
-from pyspark.sql.functions import lit
+
+from pyspark.sql.functions import lit, current_timestamp
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,166 +29,164 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable"
 
 # Azure Data Lake Configuration
-STORAGE_ACCOUNT = dbutils.secrets.get(scope="azure-credentials", key="storage-account-name")
-BRONZE_PATH = f"abfss://bronze@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality/hubeau"
+try:
+    STORAGE_ACCOUNT = dbutils.secrets.get(scope="azure-credentials", key="storage-account-name")
+    ACCESS_KEY = dbutils.secrets.get(scope="azure-credentials", key="datalake-access-key")
+    spark.conf.set(f"fs.azure.account.key.{STORAGE_ACCOUNT}.dfs.core.windows.net", ACCESS_KEY)
+except Exception:
+    logger.warning("Could not load Databricks secrets. If running locally, this is expected.")
+    STORAGE_ACCOUNT = "wtrqltadls" # Fallback from .env
 
-# Spark configuration for Azure authentication
-ACCESS_KEY = dbutils.secrets.get(scope="azure-credentials", key="datalake-access-key")
-spark.conf.set(f"fs.azure.account.key.{STORAGE_ACCOUNT}.dfs.core.windows.net", ACCESS_KEY)
+BRONZE_BASE_PATH = f"abfss://bronze@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality"
 
-logger.info(f"Configuration loaded - Bronze Path: {BRONZE_PATH}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Ingestion Parameters
-
-# COMMAND ----------
-
-# Date range configuration
-START_DATE = datetime(2021, 1, 1)
-END_DATE = datetime.now()
-
-logger.info(f"Ingestion range: {START_DATE.strftime('%Y-%m-%d')} to {END_DATE.strftime('%Y-%m-%d')}")
+logger.info(f"Configuration loaded - Bronze Base Path: {BRONZE_BASE_PATH}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Execute Ingestion
+# MAGIC ## Ingestion Helper
 
 # COMMAND ----------
 
-# Initialize
-parsing_date = START_DATE
-day_after = parsing_date + timedelta(days=1)
-total_records = 0
-
-logger.info("Starting ingestion...")
-
-while parsing_date <= END_DATE:
-    date_str = parsing_date.strftime("%Y-%m-%d")
-    day_after_str = day_after.strftime("%Y-%m-%d")
-
-    # Pagination loop for each day
+def fetch_and_save_to_bronze(endpoint_name, url_path, target_table_name, extra_params=None):
+    """
+    Fetch data from Hub'Eau API with pagination and append to a Delta table.
+    """
+    logger.info(f"Starting ingestion for {endpoint_name}...")
+    target_path = f"{BRONZE_BASE_PATH}/{target_table_name}"
+    
     page = 1
-    day_records = []
-
+    params = {"size": 5000} 
+    if extra_params:
+        params.update(extra_params)
+        
+    total_records = 0
+    
     while True:
-        # API parameters - KEY: date_min and date_max must be DIFFERENT
-        params = {
-            "date_min_prelevement": date_str,
-            "date_max_prelevement": day_after_str,
-            "size": 20000,
-            "page": page
-        }
-
+        params["page"] = page
         try:
-            # Call API
-            response = requests.get(f"{BASE_URL}/resultats_dis", params=params, timeout=60)
+            logger.info(f"Fetching {endpoint_name} - Page {page}...")
+            response = requests.get(f"{BASE_URL}{url_path}", params=params, timeout=120)
             response.raise_for_status()
-
-            # Get data
+            
             data = response.json()
             results = data.get('data', [])
-
+            
             if not results:
-                # No more data for this day
+                logger.info("No more data found.")
                 break
-
-            day_records.extend(results)
-            logger.info(f"{date_str} page {page}: {len(results)} records")
-
-            # If less than 20K, it's the last page
-            if len(results) < 20000:
+                
+            # Convert to Pandas then Spark
+            df_pandas = pd.DataFrame(results)
+            
+            # Cast all columns to string to avoid schema evolution conflicts in Bronze Layer
+            df_pandas = df_pandas.astype(str)
+            df_spark = spark.createDataFrame(df_pandas)
+            
+            # Add Bronze metadata
+            df_spark = df_spark.withColumn("ingestion_timestamp", current_timestamp()) \
+                               .withColumn("source_api", lit(url_path))
+            
+            # Write to Delta
+            df_spark.write \
+                .format("delta") \
+                .mode("append") \
+                .option("mergeSchema", "true") \
+                .save(target_path)
+                
+            total_records += len(results)
+            logger.info(f"{endpoint_name} - Page {page} : {len(results)} records written. Total: {total_records}")
+            
+            # Pagination logic
+            if len(results) < params["size"]:
+                logger.info("Last page reached.")
                 break
-
+                
             page += 1
-
+            
         except Exception as e:
-            logger.error(f"Error on {date_str} page {page}: {e}")
+            logger.error(f"Error on {endpoint_name} page {page}: {e}")
             break
-
-    # Write all records for the day to Delta Lake
-    if day_records:
-        # Convert to Spark DataFrame
-        df_pandas = pd.DataFrame(day_records)
-        df_spark = spark.createDataFrame(df_pandas)
-
-        # Add metadata
-        df_spark = df_spark.withColumn("ingestion_timestamp", lit(datetime.now()))
-        df_spark = df_spark.withColumn("source", lit("hubeau_api"))
-        df_spark = df_spark.withColumn("year", lit(parsing_date.year))
-
-        # Write to Delta Lake
-        df_spark.write \
-            .format("delta") \
-            .mode("append") \
-            .partitionBy("year") \
-            .save(BRONZE_PATH)
-
-        total_records += len(day_records)
-        logger.info(f"{date_str}: TOTAL {len(day_records)} records ingested ({page} pages)")
-    else:
-        logger.info(f"{date_str}: 0 records")
-
-    # Move to next day
-    parsing_date += timedelta(days=1)
-    day_after += timedelta(days=1)
-
-logger.info(f"Ingestion complete: {total_records:,} total records")
+            
+    logger.info(f"Finished {endpoint_name}. Total records ingested: {total_records}")
+    return target_path
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Validation
+# MAGIC ## Paramètres d'Extraction
 
 # COMMAND ----------
 
-# Read Bronze table
-df_bronze = spark.read.format("delta").load(BRONZE_PATH)
+YEAR = "2024"
+# Code département, ex: "75" pour Paris.
+DEPARTEMENT = "75" 
 
-total_count = df_bronze.count()
-date_range = df_bronze.selectExpr("min(date_prelevement)", "max(date_prelevement)").collect()[0]
-
-logger.info(f"Total records in Bronze: {total_count:,}")
-logger.info(f"Date range: {date_range[0]} to {date_range[1]}")
+logger.info(f"Parameters => Year: {YEAR}, Departement: {DEPARTEMENT}")
 
 # COMMAND ----------
 
-# Records by year
-logger.info("Records by year:")
-df_bronze.groupBy("year").count().orderBy("year").show()
+# MAGIC %md
+# MAGIC ## 1. Ingestion Analyses (Eau Potable)
 
 # COMMAND ----------
 
-# Preview data
-logger.info("Recent data sample:")
-display(
-    df_bronze.select(
-        "date_prelevement",
-        "nom_commune",
-        "libelle_parametre",
-        "resultat_numerique",
-        "unite_mesure"
-    )
-    .orderBy("date_prelevement", ascending=False)
-    .limit(10)
+analyses_params = {
+    "date_prelevement_debut": f"{YEAR}-01-01",
+    "date_prelevement_fin": f"{YEAR}-12-31"
+}
+if DEPARTEMENT:
+    analyses_params["code_departement"] = DEPARTEMENT
+
+fetch_and_save_to_bronze(
+    endpoint_name="Analyses", 
+    url_path="/resultats_dis", 
+    target_table_name="bronze_analyses",
+    extra_params=analyses_params
 )
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Optimization
+# MAGIC ## 2. Ingestion Communes
 
 # COMMAND ----------
 
-logger.info("Optimizing Delta table...")
-spark.sql(f"OPTIMIZE delta.`{BRONZE_PATH}` ZORDER BY (date_prelevement)")
-logger.info("Optimization complete!")
+communes_params = {}
+if DEPARTEMENT:
+    communes_params["code_departement"] = DEPARTEMENT
+
+fetch_and_save_to_bronze(
+    endpoint_name="Communes", 
+    url_path="/communes_udi", 
+    target_table_name="bronze_communes",
+    extra_params=communes_params
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Validation & Optimisation
+
+# COMMAND ----------
+
+for table_name in ["bronze_analyses", "bronze_communes"]:
+    try:
+        table_path = f"{BRONZE_BASE_PATH}/{table_name}"
+        df = spark.read.format("delta").load(table_path)
+        count = df.count()
+        logger.info(f"Table {table_name}: {count:,} records.")
+        
+        # Optimize
+        logger.info(f"Optimizing {table_name}...")
+        spark.sql(f"OPTIMIZE delta.`{table_path}`")
+        
+    except Exception as e:
+        logger.error(f"Could not load or optimize {table_name}: {e}")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Pipeline Complete
 # MAGIC
-# MAGIC Bronze ingestion finished. Next: Silver transformation.
+# MAGIC Bronze ingestion finished for Potable Water. Next: Silver transformation.

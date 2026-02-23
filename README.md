@@ -9,6 +9,7 @@ Pipeline de données Azure pour l'analyse de la qualité de l'eau potable en Fra
 Les variables sont définies dans `.cloud/variables.tf` et `.cloud/terraform.tfvars`.
 
 Principales variables à personnaliser dans `terraform.tfvars` :
+
 - `project_name` : Nom de votre projet
 - `resource_group_name` : Nom du resource group Azure
 - `location` : Région Azure (westeurope, francecentral...)
@@ -64,33 +65,40 @@ invoke destroy
 ## 🔧 Variables disponibles
 
 ### Infrastructure de base
+
 - `project_name` : Nom du projet
 - `resource_group_name` : Resource group Azure
 - `location` : Région Azure
 
 ### Data Lake Storage Gen2
+
 - `lake_name` : Nom du storage account
 - `containers` : Liste des conteneurs (bronze, silver, gold, raw-data)
 
 ### Databricks
+
 - `databricks_workspace_name` : Nom du workspace
 - `databricks_sku` : SKU (standard, premium, trial)
 
 ### Service Principals
+
 - `sp_datalake_name` : SP pour l'accès au Data Lake
 - `sp_databricks_name` : SP pour Databricks
 
 ### Key Vault
+
 - `keyvault_name` : Nom du Key Vault
 - `keyvault_secrets` : Liste des secrets à créer
 
 ### Source de données
+
 - `data_source_url` : URL de l'API data.gouv.fr
 - `data_refresh_schedule` : Planning de rafraîchissement (cron)
 
 ## 🔐 Variables d'environnement (.env)
 
 Après `invoke save-env`, le fichier `.env` contiendra :
+
 - `DATALAKE_CLIENT_ID` / `DATALAKE_CLIENT_SECRET`
 - `DATABRICKS_CLIENT_ID` / `DATABRICKS_CLIENT_SECRET`
 - `KEYVAULT_NAME`

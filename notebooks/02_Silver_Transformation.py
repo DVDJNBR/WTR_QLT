@@ -1,15 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Silver Layer - Water Quality Data Transformation
+# MAGIC # Silver Layer - Water Quality Data Transformation (Eau Potable)
 # MAGIC
-# MAGIC Clean and standardize data from Bronze layer.
-# MAGIC
-# MAGIC **Transformations**:
-# MAGIC - Fix data types (dates, numbers)
-# MAGIC - Remove duplicates
-# MAGIC - Standardize column names
-# MAGIC - Add quality categories
-# MAGIC - Partition by year and department
+# MAGIC Clean and standardize data from the 2 Bronze tables:
+# MAGIC 1. `bronze_communes` -> `silver_communes` (Mapping of cities and departments)
+# MAGIC 2. `bronze_analyses` -> `silver_mesures` & `silver_conformite`
 
 # COMMAND ----------
 
@@ -20,199 +15,114 @@
 
 import logging
 from pyspark.sql import functions as F
-from pyspark.sql.types import DoubleType, IntegerType
-from datetime import datetime
+from pyspark.sql.types import DoubleType
+from pyspark.errors.exceptions.base import AnalysisException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Paths
-STORAGE_ACCOUNT = dbutils.secrets.get(scope="azure-credentials", key="storage-account-name")
-ACCESS_KEY = dbutils.secrets.get(scope="azure-credentials", key="datalake-access-key")
+# Try loading Azure configs from Databricks secrets, fallback to .env defaults if local
+try:
+    STORAGE_ACCOUNT = dbutils.secrets.get(scope="azure-credentials", key="storage-account-name")
+    ACCESS_KEY = dbutils.secrets.get(scope="azure-credentials", key="datalake-access-key")
+    spark.conf.set(f"fs.azure.account.key.{STORAGE_ACCOUNT}.dfs.core.windows.net", ACCESS_KEY)
+except Exception:
+    logger.warning("Could not load Databricks secrets. Using fallback wtrqltadls.")
+    STORAGE_ACCOUNT = "wtrqltadls"
 
-BRONZE_PATH = f"abfss://bronze@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality/hubeau"
-SILVER_PATH = f"abfss://silver@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality/cleaned"
+BRONZE_BASE_PATH = f"abfss://bronze@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality"
+SILVER_BASE_PATH = f"abfss://silver@{STORAGE_ACCOUNT}.dfs.core.windows.net/water_quality"
 
-# Spark configuration
-spark.conf.set(f"fs.azure.account.key.{STORAGE_ACCOUNT}.dfs.core.windows.net", ACCESS_KEY)
-
-logger.info(f"Bronze: {BRONZE_PATH}")
-logger.info(f"Silver: {SILVER_PATH}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Read Bronze Data
-
-# COMMAND ----------
-
-df_bronze = spark.read.format("delta").load(BRONZE_PATH)
-
-logger.info(f"Bronze records: {df_bronze.count():,}")
+def read_bronze_table(table_name):
+    try:
+        return spark.read.format("delta").load(f"{BRONZE_BASE_PATH}/{table_name}")
+    except AnalysisException:
+        logger.error(f"Bronze table {table_name} not found. Did you run the Bronze ingestion?")
+        return None
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Data Cleaning
+# MAGIC ## 1. Silver Communes (Géo)
 
 # COMMAND ----------
 
-# Fix data types
-df_clean = df_bronze \
-    .withColumn("resultat_numerique", F.col("resultat_numerique").cast(DoubleType())) \
-    .withColumn("date_prelevement", F.to_timestamp("date_prelevement")) \
-    .withColumn("code_departement", F.col("code_departement").cast(IntegerType())) \
-    .withColumn("code_commune", F.col("code_commune").cast(IntegerType()))
+logger.info("Processing Silver Communes...")
+df_bronze_communes = read_bronze_table("bronze_communes")
 
-logger.info("Data types fixed")
-
-# COMMAND ----------
-
-# Remove duplicates based on key columns
-df_clean = df_clean.dropDuplicates([
-    "code_prelevement",
-    "code_parametre",
-    "date_prelevement"
-])
-
-logger.info(f"After deduplication: {df_clean.count():,} records")
-
-# COMMAND ----------
-
-# Handle nulls - keep rows with essential data
-df_clean = df_clean.filter(
-    F.col("date_prelevement").isNotNull() &
-    F.col("code_commune").isNotNull() &
-    F.col("code_parametre").isNotNull()
-)
-
-logger.info(f"After null filtering: {df_clean.count():,} records")
+if df_bronze_communes:
+    df_silver_communes = df_bronze_communes \
+        .withColumn("commune_code", F.col("code_commune")) \
+        .withColumn("commune_name", F.col("nom_commune")) \
+        .withColumn("department_code", F.col("code_departement")) \
+        .withColumn("department_name", F.col("nom_departement"))
+        
+    keep_cols = ["commune_code", "commune_name", "department_code", "department_name"]
+    df_silver_communes = df_silver_communes.select(*keep_cols).dropDuplicates(["commune_code"])
+    
+    # Write to Silver
+    df_silver_communes.write.format("delta").mode("overwrite").save(f"{SILVER_BASE_PATH}/silver_communes")
+    logger.info(f"Silver Communes written: {df_silver_communes.count()} records.")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Standardization
+# MAGIC ## 2. Silver Mesures
 
 # COMMAND ----------
 
-# Standardize column names (snake_case)
-df_silver = df_clean \
-    .withColumnRenamed("code_departement", "department_code") \
-    .withColumnRenamed("nom_departement", "department_name") \
-    .withColumnRenamed("code_prelevement", "sampling_code") \
-    .withColumnRenamed("code_parametre", "parameter_code") \
-    .withColumnRenamed("libelle_parametre", "parameter_name") \
-    .withColumnRenamed("resultat_numerique", "numeric_result") \
-    .withColumnRenamed("libelle_unite", "unit") \
-    .withColumnRenamed("code_commune", "city_code") \
-    .withColumnRenamed("nom_commune", "city_name") \
-    .withColumnRenamed("date_prelevement", "sampling_date") \
-    .withColumnRenamed("conclusion_conformite_prelevement", "compliance_conclusion")
+logger.info("Processing Silver Mesures (from Analyses)...")
+df_bronze_analyses = read_bronze_table("bronze_analyses")
 
-logger.info("Columns standardized")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Enrichment
-
-# COMMAND ----------
-
-# Add quality categories based on compliance
-df_silver = df_silver.withColumn(
-    "quality_category",
-    F.when(F.col("compliance_conclusion").contains("conforme aux exigences"), "compliant")
-     .when(F.col("compliance_conclusion").contains("non conforme"), "non_compliant")
-     .otherwise("unknown")
-)
-
-# Add year and month for easier analysis
-df_silver = df_silver \
-    .withColumn("sampling_year", F.year("sampling_date")) \
-    .withColumn("sampling_month", F.month("sampling_date"))
-
-# Add data quality flag
-df_silver = df_silver.withColumn(
-    "data_quality",
-    F.when(F.col("numeric_result").isNotNull(), "valid")
-     .otherwise("missing_value")
-)
-
-logger.info("Enrichment complete")
+if df_bronze_analyses:
+    # Map API V1 (Eau Potable) columns
+    df_silver_mesures = df_bronze_analyses \
+        .withColumn("commune_code", F.col("code_commune")) \
+        .withColumn("sampling_date", F.to_timestamp("date_prelevement")) \
+        .withColumn("parameter_code", F.col("code_parametre")) \
+        .withColumn("parameter_name", F.col("libelle_parametre")) \
+        .withColumn("numeric_result", F.col("resultat_numerique").cast(DoubleType())) \
+        .withColumn("unit", F.col("libelle_unite")) \
+        .withColumn("sampling_id", F.col("code_prelevement"))
+        
+    # Deduplicate and basic cleaning
+    keep_cols = ["sampling_id", "commune_code", "sampling_date", "parameter_code", "parameter_name", "numeric_result", "unit"]
+    df_silver_mesures = df_silver_mesures.select(*keep_cols).dropDuplicates()
+    
+    # Partition by year for performance
+    df_silver_mesures = df_silver_mesures.withColumn("sampling_year", F.year("sampling_date"))
+    df_silver_mesures.write.format("delta").mode("overwrite").partitionBy("sampling_year").save(f"{SILVER_BASE_PATH}/silver_mesures")
+        
+    logger.info(f"Silver Mesures written: {df_silver_mesures.count()} records.")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Write to Silver Layer
+# MAGIC ## 3. Silver Conformité
 
 # COMMAND ----------
 
-# Write partitioned by year and department
-df_silver.write \
-    .format("delta") \
-    .mode("overwrite") \
-    .partitionBy("sampling_year", "department_code") \
-    .save(SILVER_PATH)
+logger.info("Processing Silver Conformite...")
 
-logger.info(f"Silver layer written: {df_silver.count():,} records")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Validation
-
-# COMMAND ----------
-
-# Read back and validate
-df_silver_check = spark.read.format("delta").load(SILVER_PATH)
-
-logger.info("=== Silver Layer Statistics ===")
-logger.info(f"Total records: {df_silver_check.count():,}")
+if df_bronze_analyses:
+    # Logic: 'C' means Compliant, 'N' means Non-Compliant (standard Hub'Eau codes)
+    # The API provides 'conformite_limites_pc_prelevement' and 'conformite_limites_bact_prelevement'
+    
+    df_silver_conformite = df_bronze_analyses \
+        .withColumn("sampling_id", F.col("code_prelevement")) \
+        .withColumn("sampling_date", F.to_timestamp("date_prelevement")) \
+        .withColumn("parameter_code", F.col("code_parametre")) \
+        .withColumn("is_compliant_pc", F.when(F.col("conformite_limites_pc_prelevement") == "C", True).otherwise(False)) \
+        .withColumn("is_compliant_bact", F.when(F.col("conformite_limites_bact_prelevement") == "C", True).otherwise(False)) \
+        .withColumn("global_conclusion", F.col("conclusion_conformite_prelevement"))
+         
+    keep_cols = ["sampling_id", "sampling_date", "parameter_code", "is_compliant_pc", "is_compliant_bact", "global_conclusion"]
+    
+    df_silver_conformite = df_silver_conformite.select(*keep_cols).dropDuplicates()
+    df_silver_conformite.write.format("delta").mode("overwrite").save(f"{SILVER_BASE_PATH}/silver_conformite")
+    logger.info(f"Silver Conformite written: {df_silver_conformite.count()} records.")
 
 # COMMAND ----------
 
-# Records by year
-logger.info("Records by year:")
-df_silver_check.groupBy("sampling_year").count().orderBy("sampling_year").show()
-
-# COMMAND ----------
-
-# Quality categories distribution
-logger.info("Quality categories:")
-df_silver_check.groupBy("quality_category").count().show()
-
-# COMMAND ----------
-
-# Sample data
-logger.info("Sample data:")
-display(
-    df_silver_check.select(
-        "sampling_date",
-        "city_name",
-        "parameter_name",
-        "numeric_result",
-        "unit",
-        "quality_category"
-    )
-    .orderBy("sampling_date", ascending=False)
-    .limit(10)
-)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Optimization
-
-# COMMAND ----------
-
-logger.info("Optimizing Delta table...")
-spark.sql(f"OPTIMIZE delta.`{SILVER_PATH}` ZORDER BY (sampling_date, city_code)")
-logger.info("Optimization complete!")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Pipeline Complete
-# MAGIC
-# MAGIC Silver transformation finished. Next: Gold aggregations.
+logger.info("Silver transformation complete!")

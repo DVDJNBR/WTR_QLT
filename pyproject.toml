@@ -11,7 +11,19 @@ dependencies = [
     "loguru>=0.7.3",
     "pyspark>=4.0.1",
     "rich>=14.2.0",
+    "great-expectations>=1.0.0",
+    "azure-storage-file-datalake>=12.14.0",
 ]
+
+[tool.ruff]
+builtins = ["spark", "dbutils", "dlt"]
+
+[tool.ruff.lint]
+ignore = ["E402"]
+
+[tool.pyright]
+reportUndefinedVariable = "none"
+reportAttributeAccessIssue = "none"
 
 [tool.setuptools]
 py-modules = []
@@ -28,4 +40,6 @@ dev = [
     "delta-spark>=4.0.0",
     "icecream>=2.1.8",
     "rich>=14.2.0",
+    "ruff>=0.4.0",
+    "pyright>=1.1.0",
 ]

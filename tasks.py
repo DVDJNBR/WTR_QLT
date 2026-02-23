@@ -7,12 +7,9 @@ Inspired by the old Lake manager but simplified with invoke
 import os
 import subprocess
 from pathlib import Path
-from invoke import task
+from invoke.tasks import task
 from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.table import Table
-from rich import print as rprint
+
 from loguru import logger
 
 # Configuration
@@ -178,7 +175,7 @@ def save_env(c):
     try:
         result = subprocess.run("az account show --query id -o tsv", shell=True, capture_output=True, text=True)
         subscription_id = result.stdout.strip() if result.returncode == 0 else "your-subscription-id"
-    except:
+    except Exception:
         subscription_id = "your-subscription-id"
     
     # Get Terraform outputs
@@ -272,7 +269,7 @@ def import_existing(c):
             "/subscriptions/029b3537-0f24-400b-b624-6058a145efe1/resourceGroups/RG_DBREAU/providers/Microsoft.Databricks/workspaces/dbw-water-quality-france"
         )
         print("✅ Databricks workspace imported")
-    except:
+    except Exception:
         print("⚠️  Databricks workspace not found or already imported")
     
     # Import storage account if it exists
@@ -282,7 +279,7 @@ def import_existing(c):
             "/subscriptions/029b3537-0f24-400b-b624-6058a145efe1/resourceGroups/RG_DBREAU/providers/Microsoft.Storage/storageAccounts/adls4waterquality"
         )
         print("✅ Storage account imported")
-    except:
+    except Exception:
         print("⚠️  Storage account not found or already imported")
 
 @task(name="tf-unlock")
@@ -340,7 +337,7 @@ def configure_databricks(c):
     console.print(f"🔧 Configuring Databricks workspace: {workspace_url}", style="blue")
     
     # Create cluster policy for cost optimization
-    cluster_policy = {
+    _cluster_policy = {
         "name": "Water Quality - Cost Optimized",
         "definition": {
             "cluster_type": {"type": "fixed", "value": "all-purpose"},
