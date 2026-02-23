@@ -223,3 +223,11 @@ tfplan.*
 .azure/# Terr
 aform sensitive variables
 .env.terraform
+
+# Node modules
+node_modules/
+
+# Agent/Editor transient folders
+.claude/
+.gemini/
+.cursor/
