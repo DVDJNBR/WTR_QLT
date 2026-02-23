@@ -79,20 +79,21 @@ if df_bronze_analyses:
     # Map API V1 (Eau Potable) columns
     df_silver_mesures = df_bronze_analyses \
         .withColumn("commune_code", F.col("code_commune")) \
+        .withColumn("department_code", F.col("code_departement")) \
         .withColumn("sampling_date", F.to_timestamp("date_prelevement")) \
         .withColumn("parameter_code", F.col("code_parametre")) \
         .withColumn("parameter_name", F.col("libelle_parametre")) \
         .withColumn("numeric_result", F.col("resultat_numerique").cast(DoubleType())) \
         .withColumn("unit", F.col("libelle_unite")) \
         .withColumn("sampling_id", F.col("code_prelevement"))
-        
+
     # Deduplicate and basic cleaning
-    keep_cols = ["sampling_id", "commune_code", "sampling_date", "parameter_code", "parameter_name", "numeric_result", "unit"]
+    keep_cols = ["sampling_id", "commune_code", "department_code", "sampling_date", "parameter_code", "parameter_name", "numeric_result", "unit"]
     df_silver_mesures = df_silver_mesures.select(*keep_cols).dropDuplicates()
-    
-    # Partition by year for performance
+
+    # Partition by year AND department (brief requirement)
     df_silver_mesures = df_silver_mesures.withColumn("sampling_year", F.year("sampling_date"))
-    df_silver_mesures.write.format("delta").mode("overwrite").partitionBy("sampling_year").save(f"{SILVER_BASE_PATH}/silver_mesures")
+    df_silver_mesures.write.format("delta").mode("overwrite").partitionBy("sampling_year", "department_code").save(f"{SILVER_BASE_PATH}/silver_mesures")
         
     logger.info(f"Silver Mesures written: {df_silver_mesures.count()} records.")
 
@@ -108,19 +109,21 @@ logger.info("Processing Silver Conformite...")
 if df_bronze_analyses:
     # Logic: 'C' means Compliant, 'N' means Non-Compliant (standard Hub'Eau codes)
     # The API provides 'conformite_limites_pc_prelevement' and 'conformite_limites_bact_prelevement'
-    
+
     df_silver_conformite = df_bronze_analyses \
         .withColumn("sampling_id", F.col("code_prelevement")) \
         .withColumn("sampling_date", F.to_timestamp("date_prelevement")) \
+        .withColumn("department_code", F.col("code_departement")) \
         .withColumn("parameter_code", F.col("code_parametre")) \
         .withColumn("is_compliant_pc", F.when(F.col("conformite_limites_pc_prelevement") == "C", True).otherwise(False)) \
         .withColumn("is_compliant_bact", F.when(F.col("conformite_limites_bact_prelevement") == "C", True).otherwise(False)) \
         .withColumn("global_conclusion", F.col("conclusion_conformite_prelevement"))
-         
-    keep_cols = ["sampling_id", "sampling_date", "parameter_code", "is_compliant_pc", "is_compliant_bact", "global_conclusion"]
-    
+
+    keep_cols = ["sampling_id", "sampling_date", "department_code", "parameter_code", "is_compliant_pc", "is_compliant_bact", "global_conclusion"]
+
     df_silver_conformite = df_silver_conformite.select(*keep_cols).dropDuplicates()
-    df_silver_conformite.write.format("delta").mode("overwrite").save(f"{SILVER_BASE_PATH}/silver_conformite")
+    df_silver_conformite = df_silver_conformite.withColumn("sampling_year", F.year("sampling_date"))
+    df_silver_conformite.write.format("delta").mode("overwrite").partitionBy("sampling_year", "department_code").save(f"{SILVER_BASE_PATH}/silver_conformite")
     logger.info(f"Silver Conformite written: {df_silver_conformite.count()} records.")
 
 # COMMAND ----------
