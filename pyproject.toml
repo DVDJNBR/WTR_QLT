@@ -1,22 +1,27 @@
 [project]
 name = "wtr-qlt"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "Water Quality Pipeline — France (Bronze → Silver → Gold + API)"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "azure-storage-blob>=12.27.0",
+    # Infrastructure
     "invoke>=2.2.1",
     "loguru>=0.7.3",
-    "pandas>=2.3.3",
+    "rich>=14.2.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
-    "rich>=14.2.0",
+    # Azure
+    "azure-storage-blob>=12.27.0",
+    "azure-storage-file-datalake>=12.14.0",
+    # API
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pandas>=2.3.3",
+    "deltalake>=0.22.0",
+    # Orchestration
+    "databricks-sdk>=0.30.0",
 ]
-
-
-
-
 
 [tool.setuptools]
 packages = []
@@ -27,22 +32,5 @@ package = true
 [dependency-groups]
 dev = [
     "icecream>=2.1.8",
-    "rich>=14.2.0",
+    "ruff>=0.4.0",
 ]
-
-[tool.semantic_release]
-version_toml = ["pyproject.toml:project.version"]
-branch = "main"
-upload_to_vcs_release = true
-build_command = "pip install build && python -m build"
-major_on_zero = false
-commit_message = "chore(release): {version}"
-
-[tool.semantic_release.branches.main]
-match = "main"
-prerelease = false
-
-[tool.semantic_release.commit_parser_options]
-allowed_tags = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore"]
-minor_tags = ["feat"]
-patch_tags = ["fix", "perf"]
