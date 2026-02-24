@@ -1,40 +1,14 @@
 # Water Quality Pipeline — France
 
-Pipeline de données Azure pour analyser la qualité de l'eau potable en France à partir de l'[API Hub'Eau](https://hubeau.eaufrance.fr/page/api-qualite-eau-potable) (data.gouv.fr).
+![Azure](https://img.shields.io/badge/Azure-0078D4?logo=microsoftazure&logoColor=white)
+![Databricks](https://img.shields.io/badge/Databricks-FF3621?logo=databricks&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-7B42BC?logo=terraform&logoColor=white)
+![Delta Lake](https://img.shields.io/badge/Delta_Lake-003366?logo=apachespark&logoColor=white)
+![Python](https://img.shields.io/badge/Python_3.13-3776AB?logo=python&logoColor=white)
 
-Les données brutes (prélèvements, paramètres physico-chimiques, conformité réglementaire) transitent par une architecture **Medallion** Bronze → Silver → Gold sur Azure Data Lake Storage Gen2 + Databricks, et sont exposées via une API REST FastAPI.
+Projet d'apprentissage data engineering pour se familiariser avec Azure Databricks, Delta Lake et l'écosystème Azure (ADLS Gen2, Terraform). Le pipeline ingère les données publiques de qualité de l'eau potable en France depuis l'[API Hub'Eau](https://hubeau.eaufrance.fr/page/api-qualite-eau-potable), les transforme selon une architecture Medallion **Bronze → Silver → Gold**, et les expose via une API REST FastAPI sans compute Databricks.
 
-## Architecture
-
-```mermaid
-flowchart TD
-    API_HUBEAU["🌊 Hub'Eau API<br/>qualite_eau_potable"] --> NB01
-
-    subgraph DATABRICKS["⚡ Databricks"]
-        NB01["📓 01_DLT_Ingestion<br/>qualite_eau"] --> BRONZE
-        BRONZE["🥉 Bronze<br/>bronze_communes<br/>bronze_analyses"] --> NB02
-        NB02["📓 02_Silver<br/>Transformation"] --> SILVER
-        SILVER["🥈 Silver<br/>silver_communes<br/>silver_mesures<br/>silver_conformite"] --> NB03
-        NB03["📓 03_Gold<br/>Agrégations"] --> GOLD
-        GOLD["🥇 Gold<br/>dim_* · fact_* · agg_*"] --> NB04
-        NB04["📓 04_Quality<br/>Checks ✅"]
-    end
-
-    subgraph ADLS["☁️ Azure Data Lake Gen2"]
-        BRONZE
-        SILVER
-        GOLD
-    end
-
-    GOLD --> API["🔌 api_qualite_eau.py<br/>FastAPI"]
-    API --> CLIENT["📊 Client / Dashboard"]
-
-    subgraph INFRA["🏗️ Infrastructure"]
-        TF["Terraform (.cloud/)"] --> ADLS
-        TF --> DATABRICKS
-        WF["create_workflow.py<br/>→ Databricks Workflows"] --> DATABRICKS
-    end
-```
+---
 
 ## Reproduire le projet
 
@@ -67,7 +41,7 @@ invoke env-save           # Sauvegarde tous les outputs dans .env
 > `invoke env-save` remplit automatiquement `DATALAKE_NAME`, `DATALAKE_ACCESS_KEY`, `DATABRICKS_WORKSPACE_URL` et `RESOURCE_GROUP_NAME`.
 > Seul `DATABRICKS_TOKEN` est à renseigner manuellement (Databricks > User Settings > Access Tokens).
 
-Autres commandes disponibles :
+Autres commandes :
 
 ```bash
 invoke infra-status       # État de l'infrastructure locale
@@ -118,9 +92,63 @@ python scripts/api_qualite_eau.py
 
 ---
 
+## Architecture
+
+### Pipeline de traitement
+
+```mermaid
+flowchart LR
+    API([Hub'Eau API]) --> NB01[01 · DLT Ingestion]
+    NB01 --> NB02[02 · Silver Transformation]
+    NB02 --> NB03[03 · Gold Agregations]
+    NB03 --> NB04[04 · Quality Checks]
+    NB04 --> REST([API REST])
+
+    style NB01 fill:#cd7f32,color:#fff,stroke:#a0522d
+    style NB02 fill:#c0c0c0,color:#333,stroke:#999
+    style NB03 fill:#ffd700,color:#333,stroke:#daa520
+    style NB04 fill:#4caf50,color:#fff,stroke:#388e3c
+```
+
+### Couches de données
+
+```mermaid
+flowchart TD
+    API([Hub'Eau API]) --> b1 & b2
+
+    subgraph BRONZE["Bronze — données brutes"]
+        b1[bronze_communes]
+        b2[bronze_analyses]
+    end
+
+    subgraph SILVER["Silver — données nettoyées"]
+        s1[silver_communes]
+        s2[silver_mesures]
+        s3[silver_conformite]
+    end
+
+    subgraph GOLD["Gold — star schema"]
+        g1[dim_communes]
+        g2[dim_parametres]
+        g3[dim_temps]
+        g4[factmesuresqualite]
+        g5[factconformite]
+        g6[agg_conformite_departement]
+    end
+
+    BRONZE --> SILVER --> GOLD
+    GOLD --> REST([API REST])
+
+    style BRONZE fill:#f5e6d3,stroke:#cd7f32,color:#5a3000
+    style SILVER fill:#f0f0f0,stroke:#999,color:#333
+    style GOLD fill:#fffde7,stroke:#daa520,color:#5a4000
+```
+
+---
+
 ## Schéma des données
 
-### 🥉 Bronze — données brutes Hub'Eau
+### Bronze — données brutes Hub'Eau
 
 ```mermaid
 erDiagram
@@ -150,7 +178,7 @@ erDiagram
     bronze_communes ||--o{ bronze_analyses : "code_commune"
 ```
 
-### 🥈 Silver — données nettoyées et standardisées
+### Silver — données nettoyées et standardisées
 
 ```mermaid
 erDiagram
@@ -186,7 +214,7 @@ erDiagram
 
 > Partitionnement Delta : `silver_mesures` et `silver_conformite` sont partitionnées par `sampling_year` / `department_code`.
 
-### 🥇 Gold — star schema analytique
+### Gold — star schema analytique
 
 ```mermaid
 erDiagram
