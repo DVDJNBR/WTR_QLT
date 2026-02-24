@@ -1,6 +1,5 @@
 
-"""
-🌊 Water Quality Pipeline - Infrastructure Management
+"""Water Quality Pipeline - Infrastructure Management
 Inspired by the old Lake manager but simplified with invoke
 """
 
@@ -168,9 +167,9 @@ def deploy(c):
 
 @task(name="env-save")
 def save_env(c):
-    """💾 Save infrastructure URLs and names to .env file"""
+    """Save infrastructure URLs and names to .env file"""
     console = Console()
-    console.print("💾 Saving Terraform outputs to .env file...", style="blue")
+    console.print("Saving Terraform outputs to .env file...", style="blue")
     
     env_file = ROOT_DIR / ".env"
     
@@ -201,7 +200,7 @@ def save_env(c):
             if result.returncode == 0:
                 outputs[key] = result.stdout.strip()
             else:
-                console.print(f"⚠️  Could not get {key}", style="yellow")
+                console.print(f"  Could not get {key}", style="yellow")
                 outputs[key] = f"error-getting-{key.lower()}"
     
     finally:
@@ -209,61 +208,61 @@ def save_env(c):
     
     # Write .env file
     env_content = f"""# ===================================================================
-# 🌊 Water Quality Pipeline - Environment Variables
+#  Water Quality Pipeline - Environment Variables
 # ===================================================================
 
-# 🔐 AZURE CREDENTIALS
+#  AZURE CREDENTIALS
 AZURE_SUBSCRIPTION_ID={subscription_id}
 
-# 🌊 DATA LAKE STORAGE
+#  DATA LAKE STORAGE
 DATALAKE_NAME={outputs.get('DATALAKE_NAME', 'not-found')}
 DATALAKE_ACCESS_KEY={outputs.get('DATALAKE_ACCESS_KEY', 'not-found')}
 DATALAKE_CONNECTION_STRING={outputs.get('DATALAKE_CONNECTION_STRING', 'not-found')}
 
-# 🧱 DATABRICKS WORKSPACE
+#  DATABRICKS WORKSPACE
 DATABRICKS_WORKSPACE_URL={outputs.get('DATABRICKS_WORKSPACE_URL', 'not-found')}
 
-# 📦 AZURE RESOURCES
+#  AZURE RESOURCES
 RESOURCE_GROUP_NAME={outputs.get('RESOURCE_GROUP_NAME', 'not-found')}
 """
     
     with open(env_file, 'w') as f:
         f.write(env_content)
     
-    console.print(f"✅ Environment variables saved to {env_file}", style="green")
-    console.print("📋 Contents:", style="cyan")
+    console.print(f"Environment variables saved to {env_file}", style="green")
+    console.print("Contents:", style="cyan")
     console.print(env_content)
 
 @task(name="infra-status")
 def status(c):
-    """📊 Check water quality pipeline infrastructure status"""
-    print("📊 Infrastructure Status:")
+    """Check water quality pipeline infrastructure status"""
+    print("Infrastructure Status:")
     print("=" * 50)
     
     # Check if terraform is initialized
     if (TERRAFORM_DIR / ".terraform").exists():
-        print("✅ Terraform initialized")
+        print("Terraform initialized")
     else:
-        print("❌ Terraform not initialized")
+        print("Terraform not initialized")
     
     # Check if plan exists
     if (TERRAFORM_DIR / "tfplan").exists():
-        print("✅ Terraform plan exists")
+        print("Terraform plan exists")
     else:
-        print("❌ No terraform plan found")
+        print("No terraform plan found")
     
     # Check if .env exists
     if (ROOT_DIR / ".env").exists():
-        print("✅ .env file exists")
+        print(" .env file exists")
     else:
-        print("❌ No .env file found")
+        print("No .env file found")
     
     print("=" * 50)
 
 @task(name="tf-import")
 def import_existing(c):
-    """📥 Import existing Azure resources into Terraform state"""
-    print("📥 Importing existing resources...")
+    """Import existing Azure resources into Terraform state"""
+    print("Importing existing resources...")
     
     # Import existing Databricks workspace if it exists
     try:
@@ -271,9 +270,9 @@ def import_existing(c):
             "terraform import azurerm_databricks_workspace.main "
             "/subscriptions/029b3537-0f24-400b-b624-6058a145efe1/resourceGroups/RG_DBREAU/providers/Microsoft.Databricks/workspaces/dbw-water-quality-france"
         )
-        print("✅ Databricks workspace imported")
+        print("Databricks workspace imported")
     except:
-        print("⚠️  Databricks workspace not found or already imported")
+        print("  Databricks workspace not found or already imported")
     
     # Import storage account if it exists
     try:
@@ -281,25 +280,25 @@ def import_existing(c):
             "terraform import azurerm_storage_account.datalake "
             "/subscriptions/029b3537-0f24-400b-b624-6058a145efe1/resourceGroups/RG_DBREAU/providers/Microsoft.Storage/storageAccounts/adls4waterquality"
         )
-        print("✅ Storage account imported")
+        print("Storage account imported")
     except:
-        print("⚠️  Storage account not found or already imported")
+        print("  Storage account not found or already imported")
 
 @task(name="tf-unlock")
 def unlock(c, lock_id=None):
-    """🔓 Force unlock Terraform state (use when locked)"""
+    """Force unlock Terraform state (use when locked)"""
     if not lock_id:
-        print("❌ Please provide lock ID: invoke tf-unlock --lock-id=YOUR_LOCK_ID")
+        print("Please provide lock ID: invoke tf-unlock --lock-id=YOUR_LOCK_ID")
         return
     
-    print(f"🔓 Force unlocking Terraform state: {lock_id}")
+    print(f"Force unlocking Terraform state: {lock_id}")
     run_terraform_command(f"terraform force-unlock -force {lock_id}")
-    print("✅ State unlocked")
+    print("State unlocked")
 
 @task(name="clean-files")
 def clean(c):
-    """🧹 Clean local terraform files and .env (keeps Azure resources)"""
-    print("🧹 Cleaning terraform files...")
+    """Clean local terraform files and .env (keeps Azure resources)"""
+    print("Cleaning terraform files...")
     
     files_to_clean = [
         TERRAFORM_DIR / "tfplan",
@@ -312,13 +311,13 @@ def clean(c):
     for file_path in files_to_clean:
         if file_path.exists():
             file_path.unlink()
-            print(f"🗑️  Removed: {file_path}")
+            print(f"  Removed: {file_path}")
     
-    print("✅ Cleanup completed")
+    print("Cleanup completed")
 
 @task(name="databricks-config")
 def configure_databricks(c):
-    """🔧 Configure Databricks for cost optimization"""
+    """Configure Databricks for cost optimization"""
     console = Console()
     
     # Get Databricks workspace URL from .env
@@ -333,11 +332,11 @@ def configure_databricks(c):
                     break
     
     if not workspace_url:
-        console.print("❌ Databricks workspace URL not found in .env", style="red")
+        console.print("Databricks workspace URL not found in .env", style="red")
         console.print("Run 'invoke env-save' first!", style="yellow")
         return
     
-    console.print(f"🔧 Configuring Databricks workspace: {workspace_url}", style="blue")
+    console.print(f"Configuring Databricks workspace: {workspace_url}", style="blue")
     
     # Create cluster policy for cost optimization
     cluster_policy = {
@@ -352,8 +351,8 @@ def configure_databricks(c):
         }
     }
     
-    console.print("📋 Cluster policy created (cost-optimized)", style="green")
-    console.print("💡 Next steps:", style="cyan")
+    console.print("Cluster policy created (cost-optimized)", style="green")
+    console.print("Next steps:", style="cyan")
     console.print("  1. Go to Databricks workspace", style="white")
     console.print("  2. Admin Console > Cluster Policies", style="white")
     console.print("  3. Apply 'Water Quality - Cost Optimized' policy", style="white")
@@ -361,7 +360,7 @@ def configure_databricks(c):
 
 @task(name="databricks-cluster")
 def create_cluster(c):
-    """🚀 Create cost-optimized cluster for water quality pipeline"""
+    """Create cost-optimized cluster for water quality pipeline"""
     console = Console()
     
     cluster_config = {
@@ -374,13 +373,13 @@ def create_cluster(c):
         "cluster_source": "UI"
     }
     
-    console.print("🚀 Cluster configuration ready:", style="blue")
+    console.print("Cluster configuration ready:", style="blue")
     console.print(f"  Name: {cluster_config['cluster_name']}", style="white")
     console.print(f"  Runtime: {cluster_config['spark_version']}", style="white")
     console.print(f"  Workers: {cluster_config['num_workers']}", style="white")
     console.print(f"  Auto-stop: {cluster_config['autotermination_minutes']} min", style="white")
     
-    console.print("\n💡 To create this cluster:", style="cyan")
+    console.print("\n To create this cluster:", style="cyan")
     console.print("  1. Go to Databricks workspace", style="white")
     console.print("  2. Compute > Create Cluster", style="white")
     console.print("  3. Use the config above", style="white")
@@ -408,8 +407,8 @@ def bronze_ingestion(c):
 
 @task(name="pipeline-setup")
 def full_setup(c):
-    """🎯 Complete water quality pipeline setup (Azure + env files)"""
-    print("🚀 Starting complete setup...")
+    """Complete water quality pipeline setup (Azure + env files)"""
+    print("Starting complete setup...")
     setup_env(c)
     deploy(c)  # deploy() calls save_env() automatically via apply()
-    print("🎉 Setup completed! Check your .env file for credentials.")
+    print("Setup completed! Check your .env file for credentials.")
