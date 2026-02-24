@@ -176,4 +176,4 @@ def conformite_stats():
 
 
 if __name__ == "__main__":
-    uvicorn.run("scripts.api_qualite_eau:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
