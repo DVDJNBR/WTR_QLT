@@ -73,10 +73,9 @@ df_conformite = read_silver_table("silver_conformite")
 if df_communes:
     logger.info("Building dim_communes...")
     dim_communes = df_communes.select(
-        "commune_code", 
-        "commune_name", 
-        "department_code", 
-        "department_name"
+        "commune_code",
+        "commune_name",
+        "department_code"
     ).dropDuplicates(["commune_code"])
     dim_communes.write.format("delta").mode("overwrite").save(f"{GOLD_BASE_PATH}/dim_communes")
 
@@ -141,10 +140,10 @@ if df_communes and df_conformite:
         df_mesures_lite = df_mesures.select("sampling_id", "commune_code").dropDuplicates()
     
     if df_mesures_lite:
-        df_join = df_conformite.join(df_mesures_lite, on="sampling_id") \
+        df_join = df_conformite.drop("department_code").join(df_mesures_lite, on="sampling_id") \
                                .join(df_communes, on="commune_code")
         
-        agg_dept = df_join.groupBy("department_code", "department_name") \
+        agg_dept = df_join.groupBy("department_code") \
             .agg(
                 F.count("*").alias("total_tests"),
                 F.sum(F.when(F.col("is_compliant_pc") & F.col("is_compliant_bact"), 1).otherwise(0)).alias("compliant_tests")
