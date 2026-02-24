@@ -18,7 +18,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "pandas>=2.3.3",
-    "deltalake>=0.22.0",
+    "deltalake[pyarrow]>=0.22.0",
     # Orchestration
     "databricks-sdk>=0.30.0",
 ]

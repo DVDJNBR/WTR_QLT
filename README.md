@@ -12,14 +12,7 @@ Projet d'apprentissage data engineering pour se familiariser avec Azure Databric
 
 ## Reproduire le projet
 
-### Prérequis
-
-- Python 3.13+ avec [uv](https://github.com/astral-sh/uv)
-- Azure CLI (`az login`)
-- Terraform
-- Workspace Databricks avec secret scope `azure-credentials` :
-  - `storage-account-name`
-  - `datalake-access-key`
+**Prérequis :** Python 3.13+ ([uv](https://github.com/astral-sh/uv)), Azure CLI, Terraform, Workspace Databricks avec secret scope `azure-credentials` (`storage-account-name`, `datalake-access-key`).
 
 ### 1. Dépendances
 
@@ -40,15 +33,6 @@ invoke env-save           # Sauvegarde tous les outputs dans .env
 
 > `invoke env-save` remplit automatiquement `DATALAKE_NAME`, `DATALAKE_ACCESS_KEY`, `DATABRICKS_WORKSPACE_URL` et `RESOURCE_GROUP_NAME`.
 > Seul `DATABRICKS_TOKEN` est à renseigner manuellement (Databricks > User Settings > Access Tokens).
-
-Autres commandes :
-
-```bash
-invoke infra-status       # État de l'infrastructure locale
-invoke tf-output          # Outputs Terraform (URLs, noms)
-invoke clean-files        # Nettoie les fichiers temporaires
-invoke azure-destroy      # Détruit toutes les ressources Azure ⚠️
-```
 
 ### 3. Notebooks Databricks
 
@@ -113,35 +97,48 @@ flowchart LR
 ### Couches de données
 
 ```mermaid
-flowchart TD
-    API([Hub'Eau API]) --> b1 & b2
+sequenceDiagram
+    participant API as Hub'Eau API
+    participant NB01 as 01 · DLT Ingestion
+    participant BRONZE as Bronze (ADLS)
+    participant NB02 as 02 · Silver Transform
+    participant SILVER as Silver (ADLS)
+    participant NB03 as 03 · Gold Agregations
+    participant GOLD as Gold (ADLS)
+    participant NB04 as 04 · Quality Checks
+    participant REST as API REST
 
-    subgraph BRONZE["Bronze — données brutes"]
-        b1[bronze_communes]
-        b2[bronze_analyses]
+    rect rgb(245, 230, 211)
+        note over API,BRONZE: Ingestion Bronze
+        NB01->>API: GET /communes_udi + /resultats_dis (paginé)
+        API-->>NB01: données brutes JSON
+        NB01->>BRONZE: Delta write (append) — bronze_communes, bronze_analyses
     end
 
-    subgraph SILVER["Silver — données nettoyées"]
-        s1[silver_communes]
-        s2[silver_mesures]
-        s3[silver_conformite]
+    rect rgb(220, 220, 220)
+        note over BRONZE,SILVER: Transformation Silver
+        NB02->>BRONZE: Delta read
+        NB02->>SILVER: Delta write — silver_communes, silver_mesures, silver_conformite
     end
 
-    subgraph GOLD["Gold — star schema"]
-        g1[dim_communes]
-        g2[dim_parametres]
-        g3[dim_temps]
-        g4[factmesuresqualite]
-        g5[factconformite]
-        g6[agg_conformite_departement]
+    rect rgb(255, 250, 205)
+        note over SILVER,GOLD: Modélisation Gold
+        NB03->>SILVER: Delta read
+        NB03->>GOLD: Delta write — dim_*, factmesuresqualite, factconformite, agg_*
     end
 
-    BRONZE --> SILVER --> GOLD
-    GOLD --> REST([API REST])
+    rect rgb(240, 253, 244)
+        note over GOLD,NB04: Controle qualité
+        NB04->>SILVER: Delta read
+        NB04->>GOLD: Delta read
+        NB04-->>NB04: assertions Spark natif — counts, nulls, ranges
+    end
 
-    style BRONZE fill:#f5e6d3,stroke:#cd7f32,color:#5a3000
-    style SILVER fill:#f0f0f0,stroke:#999,color:#333
-    style GOLD fill:#fffde7,stroke:#daa520,color:#5a4000
+    rect rgb(240, 249, 255)
+        note over GOLD,REST: Exposition
+        REST->>GOLD: Delta read (sans compute Databricks)
+        REST-->>REST: GET /conformite/departements, /parametres...
+    end
 ```
 
 ---
@@ -151,6 +148,7 @@ flowchart TD
 ### Bronze — données brutes Hub'Eau
 
 ```mermaid
+%%{init: {'er': {'layoutDirection': 'LR'}}}%%
 erDiagram
     bronze_communes {
         string code_commune PK
@@ -181,6 +179,7 @@ erDiagram
 ### Silver — données nettoyées et standardisées
 
 ```mermaid
+%%{init: {'er': {'layoutDirection': 'LR'}}}%%
 erDiagram
     silver_communes {
         string commune_code PK
@@ -217,6 +216,7 @@ erDiagram
 ### Gold — star schema analytique
 
 ```mermaid
+%%{init: {'er': {'layoutDirection': 'LR'}}}%%
 erDiagram
     dim_communes {
         string commune_code PK
@@ -261,4 +261,15 @@ erDiagram
     dim_temps ||--o{ factmesuresqualite : "date_key"
     dim_parametres ||--o{ factconformite : "parameter_code"
     dim_temps ||--o{ factconformite : "date_key"
+```
+
+---
+
+## Commandes utiles
+
+```bash
+invoke infra-status       # État de l'infrastructure locale
+invoke tf-output          # Outputs Terraform (URLs, noms)
+invoke clean-files        # Nettoie les fichiers temporaires
+invoke azure-destroy      # Détruit toutes les ressources Azure ⚠️
 ```
