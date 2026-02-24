@@ -6,16 +6,16 @@ Pipeline de données Azure pour l'analyse de la qualité de l'eau potable en Fra
 
 ```mermaid
 flowchart TD
-    API_HUBEAU["🌊 Hub'Eau API\nqualite_eau_potable"] --> NB01
+    API_HUBEAU["🌊 Hub'Eau API<br/>qualite_eau_potable"] --> NB01
 
     subgraph DATABRICKS["⚡ Databricks"]
-        NB01["📓 01_DLT_Ingestion\nqualite_eau"] --> BRONZE
-        BRONZE["🥉 Bronze\nbronze_communes\nbronze_analyses"] --> NB02
-        NB02["📓 02_Silver\nTransformation"] --> SILVER
-        SILVER["🥈 Silver\nsilver_communes\nsilver_mesures\nsilver_conformite"] --> NB03
-        NB03["📓 03_Gold\nAgrégations"] --> GOLD
-        GOLD["🥇 Gold\ndim_* · fact_* · agg_*"] --> NB04
-        NB04["📓 04_Quality\nChecks ✅"]
+        NB01["📓 01_DLT_Ingestion<br/>qualite_eau"] --> BRONZE
+        BRONZE["🥉 Bronze<br/>bronze_communes<br/>bronze_analyses"] --> NB02
+        NB02["📓 02_Silver<br/>Transformation"] --> SILVER
+        SILVER["🥈 Silver<br/>silver_communes<br/>silver_mesures<br/>silver_conformite"] --> NB03
+        NB03["📓 03_Gold<br/>Agrégations"] --> GOLD
+        GOLD["🥇 Gold<br/>dim_* · fact_* · agg_*"] --> NB04
+        NB04["📓 04_Quality<br/>Checks ✅"]
     end
 
     subgraph ADLS["☁️ Azure Data Lake Gen2"]
@@ -24,13 +24,13 @@ flowchart TD
         GOLD
     end
 
-    GOLD --> API["🔌 api_qualite_eau.py\nFastAPI"]
+    GOLD --> API["🔌 api_qualite_eau.py<br/>FastAPI"]
     API --> CLIENT["📊 Client / Dashboard"]
 
     subgraph INFRA["🏗️ Infrastructure"]
         TF["Terraform (.cloud/)"] --> ADLS
         TF --> DATABRICKS
-        WF["create_workflow.py\n→ Databricks Workflows"] --> DATABRICKS
+        WF["create_workflow.py<br/>→ Databricks Workflows"] --> DATABRICKS
     end
 ```
 
@@ -38,7 +38,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    T1["01\nIngestion Bronze"] --> T2["02\nSilver"] --> T3["03\nGold"] --> T4["04\nQuality Checks"]
+    T1["01<br/>Ingestion Bronze"] --> T2["02<br/>Silver"] --> T3["03<br/>Gold"] --> T4["04<br/>Quality Checks"]
     style T1 fill:#cd7f32,color:#fff
     style T2 fill:#c0c0c0,color:#222
     style T3 fill:#ffd700,color:#222
