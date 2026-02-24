@@ -55,10 +55,12 @@ if df_bronze_communes:
     df_silver_communes = df_bronze_communes \
         .withColumn("commune_code", F.col("code_commune")) \
         .withColumn("commune_name", F.col("nom_commune")) \
-        .withColumn("department_code", F.col("code_departement")) \
-        .withColumn("department_name", F.col("nom_departement"))
-        
-    keep_cols = ["commune_code", "commune_name", "department_code", "department_name"]
+        .withColumn("department_code",
+            F.when(F.col("code_commune").startswith("97"), F.col("code_commune").substr(1, 3))
+            .otherwise(F.col("code_commune").substr(1, 2))
+        )
+
+    keep_cols = ["commune_code", "commune_name", "department_code"]
     df_silver_communes = df_silver_communes.select(*keep_cols).dropDuplicates(["commune_code"])
     
     # Write to Silver
