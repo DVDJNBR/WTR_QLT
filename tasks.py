@@ -169,21 +169,31 @@ def save_env(c):
     except Exception:
         subscription_id = "your-subscription-id"
     
+    # Preserve DATABRICKS_TOKEN if already set in existing .env
+    existing_token = ""
+    existing_notebooks_path = "/Repos/main/WTR_QLT/notebooks"
+    if env_file.exists():
+        with open(env_file, "r") as f:
+            for line in f:
+                if line.startswith("DATABRICKS_TOKEN="):
+                    existing_token = line.split("=", 1)[1].strip()
+                elif line.startswith("DATABRICKS_NOTEBOOKS_PATH="):
+                    existing_notebooks_path = line.split("=", 1)[1].strip()
+
     # Get Terraform outputs
     original_dir = os.getcwd()
     os.chdir(TERRAFORM_DIR)
-    
+
     outputs = {}
     try:
-        # Get each output
         output_commands = {
             "DATALAKE_NAME": "terraform output -raw datalake_name",
-            "DATALAKE_ACCESS_KEY": "terraform output -raw datalake_primary_access_key", 
+            "DATALAKE_ACCESS_KEY": "terraform output -raw datalake_primary_access_key",
             "DATALAKE_CONNECTION_STRING": "terraform output -raw datalake_connection_string",
             "DATABRICKS_WORKSPACE_URL": "terraform output -raw databricks_workspace_url",
             "RESOURCE_GROUP_NAME": "terraform output -raw resource_group_name"
         }
-        
+
         for key, cmd in output_commands.items():
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             if result.returncode == 0:
@@ -191,10 +201,10 @@ def save_env(c):
             else:
                 console.print(f"  Could not get {key}", style="yellow")
                 outputs[key] = f"error-getting-{key.lower()}"
-    
+
     finally:
         os.chdir(original_dir)
-    
+
     # Write .env file
     env_content = f"""# ===================================================================
 #  Water Quality Pipeline - Environment Variables
@@ -211,16 +221,25 @@ DATALAKE_CONNECTION_STRING={outputs.get('DATALAKE_CONNECTION_STRING', 'not-found
 #  DATABRICKS WORKSPACE
 DATABRICKS_WORKSPACE_URL={outputs.get('DATABRICKS_WORKSPACE_URL', 'not-found')}
 
+#  DATABRICKS AUTH  (manual — Databricks > User Settings > Access Tokens)
+DATABRICKS_TOKEN={existing_token}
+
+#  DATABRICKS PATHS
+DATABRICKS_NOTEBOOKS_PATH={existing_notebooks_path}
+
 #  AZURE RESOURCES
 RESOURCE_GROUP_NAME={outputs.get('RESOURCE_GROUP_NAME', 'not-found')}
 """
-    
-    with open(env_file, 'w') as f:
+
+    with open(env_file, "w") as f:
         f.write(env_content)
-    
+
+    if not existing_token:
+        console.print(
+            "DATABRICKS_TOKEN is empty — create one in Databricks > User Settings > Access Tokens",
+            style="yellow"
+        )
     console.print(f"Environment variables saved to {env_file}", style="green")
-    console.print("Contents:", style="cyan")
-    console.print(env_content)
 
 @task(name="infra-status")
 def status(c):
