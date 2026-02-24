@@ -8,10 +8,6 @@ import subprocess
 from pathlib import Path
 from invoke import task
 from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.table import Table
-from rich import print as rprint
 from loguru import logger
 
 # Configuration
@@ -28,13 +24,6 @@ logger.add(
     level="INFO",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 )
-logger.add(lambda msg: None, level="INFO")  # Disable console output for loguru
-console = Console()
-
-# Configure loguru
-logger.remove()
-logger.add("logs/water_quality_{time}.log", rotation="1 day", retention="7 days")
-logger.add(lambda msg: None, format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}")
 
 def run_terraform_command(command: str, cwd: Path = TERRAFORM_DIR):
     """Execute terraform command in the specified directory"""
@@ -177,7 +166,7 @@ def save_env(c):
     try:
         result = subprocess.run("az account show --query id -o tsv", shell=True, capture_output=True, text=True)
         subscription_id = result.stdout.strip() if result.returncode == 0 else "your-subscription-id"
-    except:
+    except Exception:
         subscription_id = "your-subscription-id"
     
     # Get Terraform outputs
@@ -271,9 +260,9 @@ def import_existing(c):
             "/subscriptions/029b3537-0f24-400b-b624-6058a145efe1/resourceGroups/RG_DBREAU/providers/Microsoft.Databricks/workspaces/dbw-water-quality-france"
         )
         print("Databricks workspace imported")
-    except:
+    except Exception:
         print("  Databricks workspace not found or already imported")
-    
+
     # Import storage account if it exists
     try:
         run_terraform_command(
@@ -281,7 +270,7 @@ def import_existing(c):
             "/subscriptions/029b3537-0f24-400b-b624-6058a145efe1/resourceGroups/RG_DBREAU/providers/Microsoft.Storage/storageAccounts/adls4waterquality"
         )
         print("Storage account imported")
-    except:
+    except Exception:
         print("  Storage account not found or already imported")
 
 @task(name="tf-unlock")
@@ -338,20 +327,7 @@ def configure_databricks(c):
     
     console.print(f"Configuring Databricks workspace: {workspace_url}", style="blue")
     
-    # Create cluster policy for cost optimization
-    cluster_policy = {
-        "name": "Water Quality - Cost Optimized",
-        "definition": {
-            "cluster_type": {"type": "fixed", "value": "all-purpose"},
-            "autotermination_minutes": {"type": "fixed", "value": 120},
-            "num_workers": {"type": "range", "min": 0, "max": 4},
-            "node_type_id": {"type": "allowlist", "values": ["Standard_DS3_v2", "Standard_D4s_v3"]},
-            "enable_elastic_disk": {"type": "fixed", "value": False},
-            "runtime_engine": {"type": "fixed", "value": "STANDARD"}
-        }
-    }
-    
-    console.print("Cluster policy created (cost-optimized)", style="green")
+    console.print("Cluster policy (cost-optimized):", style="green")
     console.print("Next steps:", style="cyan")
     console.print("  1. Go to Databricks workspace", style="white")
     console.print("  2. Admin Console > Cluster Policies", style="white")
