@@ -210,6 +210,9 @@ __marimo__/
 _ressources/
 _older/
 
+# Terraform infrastructure (local only — deploy with `invoke azure-deploy`)
+.cloud/
+
 # Terraform files
 *.tfstate
 *.tfstate.*
