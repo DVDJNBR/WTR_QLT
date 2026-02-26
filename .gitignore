@@ -223,3 +223,10 @@ tfplan.*
 .azure/# Terr
 aform sensitive variables
 .env.terraform
+
+
+## BMAD METHOD
+_bmad/
+_bmad_output/
+.agent/
+.claude/

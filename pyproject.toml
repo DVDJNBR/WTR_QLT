@@ -15,7 +15,13 @@ dependencies = [
 
 
 [tool.uv]
-package = true
+package = false
+override-dependencies = ["flask-socketio>=5.6.1"]
+
+[tool.uv.workspace]
+members = [
+    "app",
+]
 
 [dependency-groups]
 dev = [
