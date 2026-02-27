@@ -231,3 +231,7 @@ _bmad/
 _bmad_output/
 .agent/
 .claude/
+
+## Misc
+node_modules/
+.gemini/

@@ -8,6 +8,7 @@ dependencies = [
     "invoke>=2.2.1",
     "loguru>=0.7.3",
     "rich>=14.2.0",
+    "streamlit>=1.54.0",
 ]
 
 
