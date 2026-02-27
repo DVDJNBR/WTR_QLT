@@ -46,7 +46,7 @@ DOM_TOM_CONFIG = [
     ("971", "Guadeloupe",  16.17, -61.57,  7.5, [0.00, 0.185]),
     ("972", "Martinique",  14.67, -61.00,  8.5, [0.20, 0.385]),
     ("973", "Guyane",       4.00, -53.00,  4.5, [0.40, 0.585]),
-    ("974", "La Réunion", -21.10,  55.50,  8.5, [0.60, 0.785]),
+    ("974", "La Réunion", -21.10,  55.50,  7.0, [0.60, 0.785]),
     ("976", "Mayotte",    -12.80,  45.15,  9.5, [0.80, 0.985]),
 ]
 DOMTOM_CODES = {c[0] for c in DOM_TOM_CONFIG}
@@ -81,6 +81,9 @@ def load_data():
  geojson_dept, geojson_commune_all, geojson_domtom,
  dept_names, commune_names) = load_data()
 
+# Mapping inverse nom → code commune (pour filtrer df_raw)
+commune_name_to_code = {v: k for k, v in commune_names.items()}
+
 # --- Session state ---
 if "view_level"           not in st.session_state: st.session_state.view_level           = "National"
 if "selected_dept_code"   not in st.session_state: st.session_state.selected_dept_code   = None
@@ -89,6 +92,7 @@ if "selected_month_label" not in st.session_state: st.session_state.selected_mon
 def reset_view():
     st.session_state.view_level         = "National"
     st.session_state.selected_dept_code = None
+    st.session_state["dept_search"]     = ""   # reset le selectbox département
 
 # Mois courant (session state, mis à jour par les pills après les KPIs)
 selected_month_label = st.session_state["selected_month_label"] or "Janvier"
@@ -151,6 +155,35 @@ st.pills(
     key="selected_month_label",
     label_visibility="collapsed",
 )
+
+# --- Recherche (sous les mois) ---
+st.caption("Rechercher par")
+sr_dept, sr_commune = st.columns(2)
+
+with sr_dept:
+    sorted_depts = sorted(dept_names.items(), key=lambda x: x[1])
+    dept_options = {"": ""} | {code: nom for code, nom in sorted_depts}
+    search_dept  = st.selectbox(
+        "Département",
+        options=list(dept_options.keys()),
+        format_func=lambda c: dept_options[c],
+        index=0,
+        placeholder="Rechercher un département…",
+        key="dept_search",
+    )
+    if search_dept and search_dept != st.session_state.get("selected_dept_code"):
+        st.session_state.selected_dept_code = search_dept
+        st.session_state.view_level = "Department"
+        st.rerun()
+
+with sr_commune:
+    all_communes   = sorted(commune_names.values(), key=lambda x: x.lower())
+    search_commune = st.selectbox(
+        "Commune",
+        options=[""] + all_communes,
+        index=0,
+        placeholder="Rechercher une commune…",
+    )
 
 st.divider()
 
@@ -331,76 +364,78 @@ else:
 st.divider()
 
 # ============================================================
-# PANNEAU BAS : Distribution + Recherche
+# PANNEAU BAS : Conformité temporelle + zoom commune
 # ============================================================
-col_dist, col_search = st.columns([1, 1])
 
-with col_dist:
-    st.subheader("Distribution")
-    bins   = [0, 80, 95, 99, 100]
-    labels = ["< 80%", "80-95%", "95-99%", "100%"]
-    df_plot = df_m.copy()
-    df_plot["tranche"] = pd.cut(df_plot["compliance_rate"], bins=bins, labels=labels, include_lowest=True)
-    dist = df_plot["tranche"].value_counts().reindex(labels).reset_index()
-    dist.columns = ["Tranche", "Nombre"]
+def build_conformity_trend(df_agg_src, dept_code=None):
+    """Conformité mensuelle pondérée depuis df_agg_dept ou df_agg_commune."""
+    df = df_agg_src[df_agg_src["code_departement"] == dept_code] if dept_code else df_agg_src
+    res = []
+    for m in range(1, 13):
+        df_mo = df[df["mois"] == m]
+        if df_mo.empty or df_mo["total_tests"].sum() == 0:
+            rate = None
+        else:
+            rate = df_mo["compliant_tests"].sum() / df_mo["total_tests"].sum() * 100
+        res.append({"mois": MOIS_LABELS[m][:3], "Conformité": rate})
+    return pd.DataFrame(res)
 
-    fig_dist = go.Figure(go.Bar(
-        x=dist["Tranche"], y=dist["Nombre"],
-        marker_color=["#ff4d4d", "#ffaf40", "#32ff7e", "#18dcff"],
+def make_conformity_fig(df_td, title):
+    # Ajuste l'axe Y dynamiquement autour des valeurs réelles
+    vals = df_td["Conformité"].dropna()
+    ymin = max(0, vals.min() - 5) if not vals.empty else 0
+    ymax = min(100, vals.max() + 2) if not vals.empty else 100
+
+    fig = go.Figure(go.Scatter(
+        x=df_td["mois"], y=df_td["Conformité"],
+        mode="lines+markers",
+        line=dict(color="#60a5fa", width=2.5),
+        marker=dict(size=6, color="#60a5fa"),
+        fill="tozeroy", fillcolor="rgba(96,165,250,0.08)",
+        hovertemplate="%{x} : %{y:.1f}%<extra></extra>",
     ))
-    fig_dist.update_layout(
-        template="plotly_dark", showlegend=False, height=280,
-        margin=dict(l=10, r=10, t=10, b=10),
+    fig.update_layout(
+        template="plotly_dark", height=200,
+        title=dict(text=title, font=dict(size=13), x=0, pad=dict(l=0)),
+        yaxis=dict(range=[ymin, ymax], title="%", ticksuffix="%"),
+        xaxis=dict(tickfont=dict(size=10)),
+        margin=dict(l=10, r=10, t=35, b=10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
-    st.plotly_chart(fig_dist, use_container_width=True, config={"displayModeBar": False})
+    return fig
 
-with col_search:
-    st.subheader("Recherche")
+# Scope de la vue courante
+if st.session_state.view_level == "Department" and dept_code:
+    trend_title = dept_names.get(dept_code, dept_code)
+    df_trend_src = df_agg_dept  # filtré par dept_code dans la fonction
+else:
+    trend_title = "France"
+    dept_code_for_trend = None
 
-    # Par département
-    sorted_depts  = sorted(dept_names.items(), key=lambda x: x[1])
-    dept_options  = {"": ""} | {code: nom for code, nom in sorted_depts}
-    search_dept   = st.selectbox(
-        "Par département",
-        options=list(dept_options.keys()),
-        format_func=lambda c: dept_options[c],
-        index=0,
+col_conformity, col_commune = st.columns([3, 2])
+
+with col_conformity:
+    dc = dept_code if st.session_state.view_level == "Department" else None
+    df_td = build_conformity_trend(df_agg_dept, dc)
+    st.plotly_chart(
+        make_conformity_fig(df_td, f"Conformité 2024 — {trend_title}"),
+        use_container_width=True, config={"displayModeBar": False},
     )
-    if search_dept and search_dept != st.session_state.get("selected_dept_code"):
-        st.session_state.selected_dept_code = search_dept
-        st.session_state.view_level = "Department"
-        st.rerun()
 
-    # Par commune
-    all_communes  = sorted(commune_names.values())
-    search_commune = st.selectbox("Par commune", options=[""] + all_communes, index=0)
-
+with col_commune:
     if search_commune:
-        df_c = df_raw[df_raw["nom_commune"] == search_commune].copy()
-        if not df_c.empty:
+        commune_code = commune_name_to_code.get(search_commune)
+        df_c_agg = df_agg_commune[df_agg_commune["code_commune"] == commune_code] if commune_code else pd.DataFrame()
+        if not df_c_agg.empty:
             res = []
             for m in range(1, 13):
-                df_mo = df_c[df_c["mois"] == m]
-                val = (
-                    ((df_mo["conformite_limites_bact_prelevement"] == "C") &
-                     (df_mo["conformite_limites_pc_prelevement"]   == "C")).mean() * 100
-                    if not df_mo.empty else None
-                )
-                res.append({"Mois": MOIS_LABELS[m][:3], "Conformité": val})
-
-            df_trend = pd.DataFrame(res)
-            fig_trend = go.Figure(go.Scatter(
-                x=df_trend["Mois"], y=df_trend["Conformité"],
-                mode="lines+markers", line=dict(color="#60a5fa", width=2),
-                marker=dict(size=6),
-            ))
-            fig_trend.update_layout(
-                template="plotly_dark", height=230,
-                yaxis=dict(range=[0, 105]),
-                margin=dict(l=10, r=10, t=10, b=10),
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                row = df_c_agg[df_c_agg["mois"] == m]
+                res.append({"mois": MOIS_LABELS[m][:3], "Conformité": row["compliance_rate"].values[0] if not row.empty else None})
+            st.plotly_chart(
+                make_conformity_fig(pd.DataFrame(res), search_commune),
+                use_container_width=True, config={"displayModeBar": False},
             )
-            st.plotly_chart(fig_trend, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("Aucune donnée pour cette commune.")
 
 st.caption("Source : Hub'Eau API (2024). Cliquez sur un département pour zoomer.")
