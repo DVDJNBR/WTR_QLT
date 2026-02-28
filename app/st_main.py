@@ -12,12 +12,7 @@ from pathlib import Path
 # --- Configuration ---
 st.set_page_config(page_title="Qualité de l'eau France 2024", layout="wide", page_icon="💧")
 
-st.markdown("""
-    <style>
-    .main { background-color: #0b0d11; color: #e2e8f0; }
-    .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
-    </style>
-""", unsafe_allow_html=True)
+# Le CSS dark/light est injecté plus bas après initialisation du session state
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -109,6 +104,21 @@ if "view_level"           not in st.session_state: st.session_state.view_level  
 if "selected_dept_code"   not in st.session_state: st.session_state.selected_dept_code   = None
 if "selected_month_label" not in st.session_state: st.session_state.selected_month_label = "Janvier"
 if "commune_search"       not in st.session_state: st.session_state.commune_search       = ""
+if "dark_mode"            not in st.session_state: st.session_state.dark_mode            = (st.get_option("theme.base") == "dark")
+
+# Thème courant
+_dark            = st.session_state.get("dark_mode", False)
+PLOTLY_TEMPLATE  = "plotly_dark" if _dark else "plotly"
+MAP_STYLE        = "carto-darkmatter" if _dark else "carto-positron"
+
+# Injection CSS adaptative
+if _dark:
+    st.markdown("""
+        <style>
+        .main { background-color: #0b0d11; color: #e2e8f0; }
+        .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
+        </style>
+    """, unsafe_allow_html=True)
 
 def reset_view():
     st.session_state.view_level         = "National"
@@ -134,16 +144,16 @@ selected_month_label = st.session_state["selected_month_label"] or "Janvier"
 selected_month = next(k for k, v in MOIS_LABELS.items() if v == selected_month_label)
 
 # --- Header ---
-col_title, col_btn = st.columns([4, 1])
+col_title, col_theme = st.columns([9, 1])
 with col_title:
     if st.session_state.view_level == "National":
         st.title("Qualité de l'eau — France 2024")
     else:
         name = dept_names.get(st.session_state.selected_dept_code, "Département")
         st.title(f"Qualité de l'eau — {name} 2024")
-with col_btn:
-    if st.session_state.view_level == "Department":
-        st.button("Retour France", on_click=reset_view)
+with col_theme:
+    st.markdown("<div style='margin-top:18px'></div>", unsafe_allow_html=True)
+    st.toggle("Mode sombre", key="dark_mode")
 
 # --- Données du mois courant ---
 dept_code = st.session_state.selected_dept_code
@@ -168,16 +178,23 @@ c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Zones", f"{nb_zones}")
 c2.metric("Conformité", f"{mean_rate:.1f}%")
 
-KPI_CARDS = [
-    (c3, "Conforme ≥95%",   nb_conforme,  "#0a1f14", "#1e4030", "#32ff7e"),
-    (c4, "Vigilance 80–95%", nb_vigilance, "#1a1500", "#3a3000", "#ffaf40"),
-    (c5, "Alerte &lt;80%",  nb_alerte,    "#1a0808", "#3a1515", "#ff4d4d"),
-]
-for col, label, count, bg, border, color in KPI_CARDS:
+if _dark:
+    KPI_CARDS = [
+        (c3, "Conforme ≥95%",    nb_conforme,  "#0a1f14", "#1e4030", "#32ff7e", "#a0aec0"),
+        (c4, "Vigilance 80–95%", nb_vigilance, "#1a1500", "#3a3000", "#ffaf40", "#a0aec0"),
+        (c5, "Alerte &lt;80%",   nb_alerte,    "#1a0808", "#3a1515", "#ff4d4d", "#a0aec0"),
+    ]
+else:
+    KPI_CARDS = [
+        (c3, "Conforme ≥95%",    nb_conforme,  "#f0fff4", "#9ae6b4", "#276749", "#4a5568"),
+        (c4, "Vigilance 80–95%", nb_vigilance, "#fffaf0", "#fbd38d", "#c05621", "#4a5568"),
+        (c5, "Alerte &lt;80%",   nb_alerte,    "#fff5f5", "#fed7d7", "#c53030", "#4a5568"),
+    ]
+for col, label, count, bg, border, color, label_color in KPI_CARDS:
     with col:
         st.markdown(f"""
             <div style="background:{bg};border:1px solid {border};padding:15px;border-radius:12px">
-                <div style="font-size:0.8rem;color:#a0aec0;margin-bottom:6px">{label}</div>
+                <div style="font-size:0.8rem;color:{label_color};margin-bottom:6px">{label}</div>
                 <div style="font-size:2rem;font-weight:700;color:{color};line-height:1">{count}</div>
             </div>
         """, unsafe_allow_html=True)
@@ -193,7 +210,7 @@ st.pills(
 
 # --- Recherche (sous les mois) ---
 st.caption("Rechercher par")
-sr_dept, sr_commune = st.columns(2)
+sr_dept, sr_commune, sr_reset = st.columns([7, 7, 2])
 
 with sr_dept:
     sorted_depts = sorted(dept_names.items(), key=lambda x: x[1])
@@ -220,6 +237,11 @@ with sr_commune:
         placeholder="Rechercher une commune…",
         key="commune_search",
     )
+
+with sr_reset:
+    if st.session_state.view_level == "Department":
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+        st.button("Retour", on_click=reset_view, use_container_width=True)
 
 st.divider()
 
@@ -286,7 +308,7 @@ if st.session_state.view_level == "National":
             subplot=f"mapbox{i+2}",
         ))
         fig.update_layout(**{f"mapbox{i+2}": dict(
-            style="carto-darkmatter",
+            style=MAP_STYLE,
             center={"lat": lat, "lon": lon},
             zoom=zoom,
             domain={"x": x_dom, "y": [0.01, 0.22]},
@@ -305,7 +327,7 @@ if st.session_state.view_level == "National":
     fig.update_layout(
         **common_mapbox_layout(),
         mapbox=dict(
-            style="carto-darkmatter",
+            style=MAP_STYLE,
             center={"lat": 46.5, "lon": 2.5},
             zoom=4.8, pitch=40,
             domain={"x": [0, 1], "y": [0.25, 1.0]},
@@ -348,7 +370,7 @@ else:
         ))
         fig.update_layout(
             **common_mapbox_layout(),
-            mapbox=dict(style="carto-darkmatter", center={"lat": lat, "lon": lon}, zoom=zoom),
+            mapbox=dict(style=MAP_STYLE, center={"lat": lat, "lon": lon}, zoom=zoom),
             coloraxis=coloraxis_config(),
             height=580,
         )
@@ -390,7 +412,7 @@ else:
         ))
         fig.update_layout(
             **common_mapbox_layout(),
-            mapbox=dict(style="carto-darkmatter",
+            mapbox=dict(style=MAP_STYLE,
                         center={"lat": center_lat, "lon": center_lon}, zoom=7.5),
             coloraxis=coloraxis_config(),
             height=580,
@@ -449,7 +471,7 @@ def make_conformity_fig(df_td, title, zone_label="Zone", df_commune_td=None, com
         ))
 
     fig.update_layout(
-        template="plotly_dark", height=220,
+        template=PLOTLY_TEMPLATE, height=220,
         title=dict(text=title, font=dict(size=13), x=0, pad=dict(l=0)),
         yaxis=dict(range=[ymin, ymax], title="%", ticksuffix="%"),
         xaxis=dict(tickfont=dict(size=10)),
@@ -583,7 +605,7 @@ def make_params_fig(df_pct, scope_label):
         ))
 
     fig.update_layout(
-        template="plotly_dark", height=260,
+        template=PLOTLY_TEMPLATE, height=260,
         title=dict(
             text=f"Niveaux physico-chimiques — {scope_label} (% de la limite légale)",
             font=dict(size=13), x=0,
@@ -631,7 +653,7 @@ def make_bact_fig(df_bact, scope_label, has_detections=True):
         )]
 
     fig.update_layout(
-        template="plotly_dark", height=220, barmode="group",
+        template=PLOTLY_TEMPLATE, height=220, barmode="group",
         title=dict(text=f"Détections bactériologiques — {scope_label}", font=dict(size=13), x=0),
         yaxis=yaxis, xaxis=dict(tickfont=dict(size=10)),
         showlegend=has_detections, legend=legend if has_detections else dict(),
