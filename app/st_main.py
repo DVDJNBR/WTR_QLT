@@ -21,12 +21,27 @@ st.markdown("""
 
 DATA_DIR = Path(__file__).parent / "data"
 
-# Téléchargement automatique du GeoJSON DOM-TOM si absent
+# Téléchargement automatique des GeoJSON si absents ou au mauvais format
+import urllib.request
+
+_GEOJSON_BASE = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master"
+
+# Départements métropole (avec géométrie)
+_DEPT_PATH = DATA_DIR / "departements.geojson"
+_dept_ok = False
+if _DEPT_PATH.exists():
+    _sample = json.loads(_DEPT_PATH.read_text(encoding="utf-8"))
+    _dept_ok = isinstance(_sample, dict) and "features" in _sample
+if not _dept_ok:
+    with urllib.request.urlopen(f"{_GEOJSON_BASE}/departements.geojson", timeout=30) as r:
+        _data = json.load(r)
+    with open(_DEPT_PATH, "w", encoding="utf-8") as f:
+        json.dump(_data, f, ensure_ascii=False)
+
+# DOM-TOM
 _DOMTOM_PATH = DATA_DIR / "departements_domtom.geojson"
 if not _DOMTOM_PATH.exists():
-    import urllib.request
-    _URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-avec-outre-mer.geojson"
-    with urllib.request.urlopen(_URL, timeout=30) as r:
+    with urllib.request.urlopen(f"{_GEOJSON_BASE}/departements-avec-outre-mer.geojson", timeout=30) as r:
         _data = json.load(r)
     _data["features"] = [f for f in _data["features"] if f["properties"]["code"] in {"971","972","973","974","976"}]
     with open(_DOMTOM_PATH, "w", encoding="utf-8") as f:
@@ -73,13 +88,18 @@ def load_data():
     df_agg_dept["nom_dept"]       = df_agg_dept["code_departement"].map(dept_names)
     df_agg_commune["nom_commune"] = df_agg_commune["code_commune"].map(commune_names)
 
+    df_params_dept    = pd.read_parquet(DATA_DIR / "parametres_dept_mois.parquet")
+    df_params_commune = pd.read_parquet(DATA_DIR / "parametres_commune_mois.parquet")
+
     return (df_agg_commune, df_agg_dept, df_raw,
             geojson_dept, geojson_commune_all, geojson_domtom,
-            dept_names, commune_names)
+            dept_names, commune_names,
+            df_params_dept, df_params_commune)
 
 (df_agg_commune, df_agg_dept, df_raw,
  geojson_dept, geojson_commune_all, geojson_domtom,
- dept_names, commune_names) = load_data()
+ dept_names, commune_names,
+ df_params_dept, df_params_commune) = load_data()
 
 # Mapping inverse nom → code commune (pour filtrer df_raw)
 commune_name_to_code = {v: k for k, v in commune_names.items()}
@@ -88,11 +108,26 @@ commune_name_to_code = {v: k for k, v in commune_names.items()}
 if "view_level"           not in st.session_state: st.session_state.view_level           = "National"
 if "selected_dept_code"   not in st.session_state: st.session_state.selected_dept_code   = None
 if "selected_month_label" not in st.session_state: st.session_state.selected_month_label = "Janvier"
+if "commune_search"       not in st.session_state: st.session_state.commune_search       = ""
 
 def reset_view():
     st.session_state.view_level         = "National"
     st.session_state.selected_dept_code = None
-    st.session_state["dept_search"]     = ""   # reset le selectbox département
+    st.session_state["dept_search"]     = ""
+    st.session_state["commune_search"]  = ""
+
+# Auto-détection département depuis la commune (avant tout widget)
+_stored_commune = st.session_state.get("commune_search", "")
+if _stored_commune:
+    _c_code = commune_name_to_code.get(_stored_commune)
+    if _c_code:
+        _dept_rows = df_agg_commune[df_agg_commune["code_commune"] == _c_code]
+        if not _dept_rows.empty:
+            _auto_dept = str(_dept_rows["code_departement"].iloc[0])
+            if st.session_state.get("selected_dept_code") != _auto_dept:
+                st.session_state.selected_dept_code = _auto_dept
+                st.session_state["dept_search"]     = _auto_dept
+                st.session_state.view_level         = "Department"
 
 # Mois courant (session state, mis à jour par les pills après les KPIs)
 selected_month_label = st.session_state["selected_month_label"] or "Janvier"
@@ -183,6 +218,7 @@ with sr_commune:
         options=[""] + all_communes,
         index=0,
         placeholder="Rechercher une commune…",
+        key="commune_search",
     )
 
 st.divider()
@@ -380,62 +416,255 @@ def build_conformity_trend(df_agg_src, dept_code=None):
         res.append({"mois": MOIS_LABELS[m][:3], "Conformité": rate})
     return pd.DataFrame(res)
 
-def make_conformity_fig(df_td, title):
-    # Ajuste l'axe Y dynamiquement autour des valeurs réelles
+def make_conformity_fig(df_td, title, zone_label="Zone", df_commune_td=None, commune_label=None):
     vals = df_td["Conformité"].dropna()
     ymin = max(0, vals.min() - 5) if not vals.empty else 0
     ymax = min(100, vals.max() + 2) if not vals.empty else 100
 
-    fig = go.Figure(go.Scatter(
+    if df_commune_td is not None:
+        c_vals = df_commune_td["Conformité"].dropna()
+        if not c_vals.empty:
+            ymin = min(ymin, max(0, c_vals.min() - 5))
+            ymax = max(ymax, min(100, c_vals.max() + 2))
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
         x=df_td["mois"], y=df_td["Conformité"],
+        name=zone_label,
         mode="lines+markers",
         line=dict(color="#60a5fa", width=2.5),
         marker=dict(size=6, color="#60a5fa"),
         fill="tozeroy", fillcolor="rgba(96,165,250,0.08)",
-        hovertemplate="%{x} : %{y:.1f}%<extra></extra>",
+        hovertemplate=f"{zone_label} — %{{x}} : %{{y:.1f}}%<extra></extra>",
     ))
+
+    if df_commune_td is not None:
+        fig.add_trace(go.Scatter(
+            x=df_commune_td["mois"], y=df_commune_td["Conformité"],
+            name=commune_label,
+            mode="lines+markers",
+            line=dict(color="#f97316", width=2, dash="dot"),
+            marker=dict(size=6, color="#f97316"),
+            hovertemplate=f"{commune_label} — %{{x}} : %{{y:.1f}}%<extra></extra>",
+        ))
+
     fig.update_layout(
-        template="plotly_dark", height=200,
+        template="plotly_dark", height=220,
         title=dict(text=title, font=dict(size=13), x=0, pad=dict(l=0)),
         yaxis=dict(range=[ymin, ymax], title="%", ticksuffix="%"),
         xaxis=dict(tickfont=dict(size=10)),
-        margin=dict(l=10, r=10, t=35, b=10),
+        showlegend=df_commune_td is not None,
+        legend=dict(orientation="h", y=-0.25, x=0, font=dict(size=10)),
+        margin=dict(l=10, r=10, t=35, b=40 if df_commune_td is not None else 10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     )
     return fig
 
 # Scope de la vue courante
 if st.session_state.view_level == "Department" and dept_code:
-    trend_title = dept_names.get(dept_code, dept_code)
-    df_trend_src = df_agg_dept  # filtré par dept_code dans la fonction
+    trend_title  = dept_names.get(dept_code, dept_code)
+    trend_zone   = trend_title
 else:
     trend_title = "France"
-    dept_code_for_trend = None
+    trend_zone  = "France"
 
-col_conformity, col_commune = st.columns([3, 2])
+# Ligne conformité département / France
+dc    = dept_code if st.session_state.view_level == "Department" else None
+df_td = build_conformity_trend(df_agg_dept, dc)
 
-with col_conformity:
-    dc = dept_code if st.session_state.view_level == "Department" else None
-    df_td = build_conformity_trend(df_agg_dept, dc)
-    st.plotly_chart(
-        make_conformity_fig(df_td, f"Conformité 2024 — {trend_title}"),
-        use_container_width=True, config={"displayModeBar": False},
-    )
-
-with col_commune:
-    if search_commune:
-        commune_code = commune_name_to_code.get(search_commune)
-        df_c_agg = df_agg_commune[df_agg_commune["code_commune"] == commune_code] if commune_code else pd.DataFrame()
-        if not df_c_agg.empty:
-            res = []
+# Overlay commune si sélectionnée
+df_commune_td  = None
+commune_label  = None
+if search_commune:
+    _c_code = commune_name_to_code.get(search_commune)
+    if _c_code:
+        _df_c = df_agg_commune[df_agg_commune["code_commune"] == _c_code]
+        if not _df_c.empty:
+            _res = []
             for m in range(1, 13):
-                row = df_c_agg[df_c_agg["mois"] == m]
-                res.append({"mois": MOIS_LABELS[m][:3], "Conformité": row["compliance_rate"].values[0] if not row.empty else None})
-            st.plotly_chart(
-                make_conformity_fig(pd.DataFrame(res), search_commune),
-                use_container_width=True, config={"displayModeBar": False},
-            )
-        else:
-            st.info("Aucune donnée pour cette commune.")
+                row = _df_c[_df_c["mois"] == m]
+                _res.append({"mois": MOIS_LABELS[m][:3], "Conformité": row["compliance_rate"].values[0] if not row.empty else None})
+            df_commune_td = pd.DataFrame(_res)
+            commune_label = search_commune
+
+st.plotly_chart(
+    make_conformity_fig(
+        df_td, f"Conformité 2024 — {trend_title}",
+        zone_label=trend_zone,
+        df_commune_td=df_commune_td,
+        commune_label=commune_label,
+    ),
+    use_container_width=True, config={"displayModeBar": False},
+)
 
 st.caption("Source : Hub'Eau API (2024). Cliquez sur un département pour zoomer.")
+
+st.divider()
+
+# ============================================================
+# PANNEAU PARAMÈTRES : niveaux réels de prélèvement
+# ============================================================
+
+PARAM_COLORS = {
+    "Nitrates":        "#f97316",
+    "Nitrites":        "#ef4444",
+    "Trihalométhanes": "#a855f7",
+    "Turbidité":       "#06b6d4",
+    "Fluorures":       "#84cc16",
+}
+BACT_COLORS = {
+    "E. coli":      "#f87171",
+    "Entérocoques": "#fb923c",
+}
+MOIS_SHORT = [MOIS_LABELS[m][:3] for m in range(1, 13)]
+
+
+def get_params_scope(df_dept, df_commune):
+    """Retourne (df_pct, df_bact) selon la vue courante."""
+    if search_commune:
+        commune_code = commune_name_to_code.get(search_commune)
+        if commune_code:
+            src = df_commune[df_commune["code_commune"] == commune_code]
+        else:
+            src = pd.DataFrame()
+    elif st.session_state.view_level == "Department" and dept_code:
+        src = df_dept[df_dept["code_departement"] == dept_code]
+    else:
+        # National : médiane des depts par mois × paramètre
+        if df_dept.empty:
+            return pd.DataFrame(), pd.DataFrame()
+        src = df_dept.groupby(
+            ["mois", "code_parametre", "nom_parametre", "type", "limite"]
+        ).agg(
+            valeur_mediane=("valeur_mediane", "median"),
+            pct_limite=("pct_limite", "median"),
+        ).reset_index()
+
+    if src.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    df_pct  = src[src["type"] == "pct"]
+    df_bact = src[src["type"] == "count"]
+    return df_pct, df_bact
+
+
+def make_params_fig(df_pct, scope_label):
+    """Multi-lignes % de la limite légale pour les paramètres physico-chimiques."""
+    fig = go.Figure()
+
+    # Ligne de danger à 100%
+    fig.add_shape(
+        type="line", x0=-0.5, x1=11.5, y0=100, y1=100,
+        line=dict(color="#ff4d4d", width=1.5, dash="dash"),
+        xref="x", yref="y",
+    )
+    fig.add_annotation(
+        x=11, y=102, text="Limite légale", font=dict(size=9, color="#ff4d4d"),
+        showarrow=False, xref="x", yref="y",
+    )
+
+    for nom, color in PARAM_COLORS.items():
+        sub = df_pct[df_pct["nom_parametre"] == nom]
+        if sub.empty:
+            continue
+        y_vals = []
+        for m in range(1, 13):
+            row = sub[sub["mois"] == m]
+            y_vals.append(row["pct_limite"].values[0] if not row.empty else None)
+
+        fig.add_trace(go.Scatter(
+            x=MOIS_SHORT, y=y_vals,
+            name=nom,
+            mode="lines+markers",
+            line=dict(color=color, width=2),
+            marker=dict(size=5, color=color),
+            connectgaps=True,
+            hovertemplate=f"<b>{nom}</b><br>%{{x}} : %{{y:.1f}}% limite<extra></extra>",
+        ))
+
+    fig.update_layout(
+        template="plotly_dark", height=260,
+        title=dict(
+            text=f"Niveaux physico-chimiques — {scope_label} (% de la limite légale)",
+            font=dict(size=13), x=0,
+        ),
+        yaxis=dict(title="% limite", ticksuffix="%", rangemode="tozero"),
+        xaxis=dict(tickfont=dict(size=10)),
+        legend=dict(orientation="h", y=-0.25, x=0, font=dict(size=10)),
+        margin=dict(l=10, r=10, t=40, b=10),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+def make_bact_fig(df_bact, scope_label, has_detections=True):
+    """Barres groupées (ou ligne verte à 0) pour les paramètres bactériologiques."""
+    fig = go.Figure()
+
+    if has_detections:
+        for nom, color in BACT_COLORS.items():
+            sub = df_bact[df_bact["nom_parametre"] == nom] if df_bact is not None else pd.DataFrame()
+            if sub.empty:
+                continue
+            y_vals = [sub[sub["mois"] == m]["valeur_mediane"].values[0] if not sub[sub["mois"] == m].empty else 0 for m in range(1, 13)]
+            fig.add_trace(go.Bar(
+                x=MOIS_SHORT, y=y_vals, name=nom, marker_color=color,
+                hovertemplate=f"<b>{nom}</b><br>%{{x}} : %{{y:.0f}} détections<extra></extra>",
+            ))
+        yaxis = dict(title="Détections")
+        legend = dict(orientation="h", y=-0.30, x=0, font=dict(size=10))
+        annotations = []
+    else:
+        # Ligne verte à 0 + annotation
+        fig.add_trace(go.Scatter(
+            x=MOIS_SHORT, y=[0] * 12,
+            mode="lines", name="Détections",
+            line=dict(color="#32ff7e", width=2.5),
+            hovertemplate="%{x} : 0 détection<extra></extra>",
+        ))
+        yaxis = dict(title="Détections", range=[-1, 5], showticklabels=False)
+        legend = dict(showlegend=False)
+        annotations = [dict(
+            text="0 détection — E. coli · Entérocoques",
+            x=5.5, y=0.8, xref="x", yref="y",
+            font=dict(size=10, color="#32ff7e"), showarrow=False,
+        )]
+
+    fig.update_layout(
+        template="plotly_dark", height=220, barmode="group",
+        title=dict(text=f"Détections bactériologiques — {scope_label}", font=dict(size=13), x=0),
+        yaxis=yaxis, xaxis=dict(tickfont=dict(size=10)),
+        showlegend=has_detections, legend=legend if has_detections else dict(),
+        annotations=annotations,
+        margin=dict(l=10, r=10, t=40, b=10),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+# Scope label
+if search_commune:
+    params_label = search_commune
+elif st.session_state.view_level == "Department" and dept_code:
+    params_label = dept_names.get(dept_code, dept_code)
+else:
+    params_label = "France"
+
+df_pct, df_bact = get_params_scope(df_params_dept, df_params_commune)
+
+if df_pct.empty and df_bact.empty:
+    st.info("Aucune donnée de paramètres disponible pour cette sélection.")
+else:
+    col_pct, col_bact = st.columns([3, 2])
+    with col_pct:
+        if not df_pct.empty:
+            st.plotly_chart(
+                make_params_fig(df_pct, params_label),
+                use_container_width=True, config={"displayModeBar": False},
+            )
+    with col_bact:
+        _has_detections = bool(not df_bact.empty and df_bact["valeur_mediane"].sum() > 0)
+        st.plotly_chart(
+            make_bact_fig(df_bact if _has_detections else None, params_label, has_detections=_has_detections),
+            use_container_width=True, config={"displayModeBar": False},
+        )

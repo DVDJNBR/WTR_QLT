@@ -221,10 +221,11 @@ def compute_parametres_aggregations(df: pd.DataFrame):
 
 
 def fetch_geo_data():
-    # Depts
+    # Depts — geo.api.gouv.fr retourne une liste, pas un FeatureCollection.
+    # On utilise gregoiredavid/france-geojson pour avoir le bon format GeoJSON.
     logger.info("Fetching Dept GeoJSON with contours...")
-    # L'API geo.api.gouv.fr/departements?format=geojson renvoie un FeatureCollection
-    resp = requests.get(f"{GEO_API}/departements?format=geojson&geometry=contour")
+    _GEOJSON_BASE = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master"
+    resp = requests.get(f"{_GEOJSON_BASE}/departements.geojson", timeout=30)
     resp.raise_for_status()
     with open(DATA_DIR / "departements.geojson", "w") as f:
         json.dump(resp.json(), f)
