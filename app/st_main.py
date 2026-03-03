@@ -112,6 +112,17 @@ PLOTLY_TEMPLATE  = "plotly_dark" if _dark else "plotly"
 MAP_STYLE        = "carto-darkmatter" if _dark else "carto-positron"
 
 # Injection CSS adaptative
+st.markdown("""
+    <style>
+    /* Limiter la largeur maximale de l'application */
+    .block-container {
+        max-width: 1200px;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        margin: auto;
+    }
+    """, unsafe_allow_html=True)
+
 if _dark:
     st.markdown("""
         <style>
