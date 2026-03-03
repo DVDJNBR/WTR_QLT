@@ -130,6 +130,13 @@ if _dark:
         .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
         </style>
     """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+        .main { background-color: #ffffff; color: #31333f; }
+        .stMetric { background-color: #f0f2f6; border: 1px solid #dfe2e6; padding: 15px; border-radius: 12px; }
+        </style>
+    """, unsafe_allow_html=True)
 
 def reset_view():
     st.session_state.view_level         = "National"
