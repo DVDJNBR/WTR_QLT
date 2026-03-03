@@ -8,7 +8,7 @@ gatherUsageStats = false
 
 [theme]
 primaryColor="#60a5fa"
-backgroundColor="#ffffff"
-secondaryBackgroundColor="#f0f2f6"
-textColor="#31333f"
+backgroundColor="#0b0d11"
+secondaryBackgroundColor="#1a1f26"
+textColor="#e2e8f0"
 font="sans serif"

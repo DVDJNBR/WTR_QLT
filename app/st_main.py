@@ -123,60 +123,50 @@ st.markdown("""
     }
     """, unsafe_allow_html=True)
 
-if _dark:
+if not _dark:
+    # En mode clair : surcharger le thème sombre du config.toml
     st.markdown("""
         <style>
-        /* Global Background */
-        .stApp, [data-testid="stAppViewContainer"], .main { 
-            background-color: #0b0d11 !important; 
-            color: #e2e8f0 !important; 
+        /* Fond global */
+        .stApp, [data-testid="stAppViewContainer"], .main,
+        [data-testid="stHeader"], section[data-testid="stSidebar"] {
+            background-color: #f1f5f9 !important;
+            color: #1a202c !important;
         }
-        
-        /* Force widget backgrounds in Dark Mode */
-        div[data-baseweb="select"] > div, 
-        div[data-testid="stSelectbox"] div,
-        div[data-testid="stPills"] button,
-        div[data-testid="stTextInput"] input,
-        .stButton button {
-            background-color: #1a1f26 !important;
-            color: #e2e8f0 !important;
-            border-color: #2d3748 !important;
+        /* Header/bandeau */
+        [data-testid="stHeader"] { background-color: #f1f5f9 !important; }
+        /* Titres */
+        h1, h2, h3, h4, p, label, .stMarkdown p { color: #1a202c !important; }
+        /* Pills mois */
+        div[data-testid="stPills"] button {
+            background-color: #e2e8f0 !important;
+            color: #1a202c !important;
+            border: 1px solid #cbd5e0 !important;
         }
-
-        /* Dropdowns items */
-        div[role="listbox"] div {
-            background-color: #1a1f26 !important;
-            color: #e2e8f0 !important;
-        }
-        
-        /* Active Pill */
         div[data-testid="stPills"] button[aria-checked="true"] {
             background-color: #3182ce !important;
             color: #ffffff !important;
+            border-color: #3182ce !important;
         }
-
-        /* Metric/KPI titles and text */
-        [data-testid="stMetricValue"] { color: #ffffff !important; }
-        [data-testid="stMetricLabel"] p { color: #a0aec0 !important; }
-        
-        /* Titles */
-        h1, h2, h3, h4 { color: #ffffff !important; }
-        .stMarkdown p, label { color: #cbd5e0 !important; }
-        </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-        <style>
-        .stApp, [data-testid="stAppViewContainer"], .main { 
-            background-color: #ffffff !important; 
-            color: #31333f !important; 
+        /* Selectbox département / commune */
+        div[data-baseweb="select"] > div,
+        div[data-baseweb="select"] > div > div {
+            background-color: #ffffff !important;
+            color: #1a202c !important;
+            border-color: #cbd5e0 !important;
         }
-        /* Metrics in light mode */
-        div[data-testid="stMetric"] { 
-            background-color: #f0f2f6 !important; 
-            border: 1px solid #dfe2e6 !important; 
-            padding: 15px !important; 
-            border-radius: 12px !important; 
+        div[data-baseweb="select"] span { color: #1a202c !important; }
+        /* Dropdown list */
+        ul[data-baseweb="menu"], div[data-baseweb="popover"] ul {
+            background-color: #ffffff !important;
+        }
+        ul[data-baseweb="menu"] li { color: #1a202c !important; }
+        ul[data-baseweb="menu"] li:hover { background-color: #ebf4ff !important; }
+        /* Caption / texte secondaire */
+        .stCaption, [data-testid="stCaptionContainer"] p { color: #718096 !important; }
+        /* Toggle label */
+        div[data-testid="stToggle"] label, div[data-testid="stToggle"] p {
+            color: #1a202c !important;
         }
         </style>
     """, unsafe_allow_html=True)
