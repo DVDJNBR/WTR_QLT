@@ -107,67 +107,16 @@ if "commune_search"       not in st.session_state: st.session_state.commune_sear
 if "dark_mode"            not in st.session_state: st.session_state.dark_mode            = True
 
 # Thème courant
-_dark            = st.session_state.get("dark_mode", True)
+_dark            = st.session_state.get("dark_mode", False)
 PLOTLY_TEMPLATE  = "plotly_dark" if _dark else "plotly"
 MAP_STYLE        = "carto-darkmatter" if _dark else "carto-positron"
 
 # Injection CSS adaptative
-st.markdown("""
-    <style>
-    /* Limiter la largeur maximale de l'application */
-    .block-container {
-        max-width: 1200px;
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        margin: auto;
-    }
-    """, unsafe_allow_html=True)
-
-if not _dark:
-    # En mode clair : surcharger le thème sombre du config.toml
+if _dark:
     st.markdown("""
         <style>
-        /* Fond global */
-        .stApp, [data-testid="stAppViewContainer"], .main,
-        [data-testid="stHeader"], section[data-testid="stSidebar"] {
-            background-color: #f1f5f9 !important;
-            color: #1a202c !important;
-        }
-        /* Header/bandeau */
-        [data-testid="stHeader"] { background-color: #f1f5f9 !important; }
-        /* Titres */
-        h1, h2, h3, h4, p, label, .stMarkdown p { color: #1a202c !important; }
-        /* Pills mois */
-        div[data-testid="stPills"] button {
-            background-color: #e2e8f0 !important;
-            color: #1a202c !important;
-            border: 1px solid #cbd5e0 !important;
-        }
-        div[data-testid="stPills"] button[aria-checked="true"] {
-            background-color: #3182ce !important;
-            color: #ffffff !important;
-            border-color: #3182ce !important;
-        }
-        /* Selectbox département / commune */
-        div[data-baseweb="select"] > div,
-        div[data-baseweb="select"] > div > div {
-            background-color: #ffffff !important;
-            color: #1a202c !important;
-            border-color: #cbd5e0 !important;
-        }
-        div[data-baseweb="select"] span { color: #1a202c !important; }
-        /* Dropdown list */
-        ul[data-baseweb="menu"], div[data-baseweb="popover"] ul {
-            background-color: #ffffff !important;
-        }
-        ul[data-baseweb="menu"] li { color: #1a202c !important; }
-        ul[data-baseweb="menu"] li:hover { background-color: #ebf4ff !important; }
-        /* Caption / texte secondaire */
-        .stCaption, [data-testid="stCaptionContainer"] p { color: #718096 !important; }
-        /* Toggle label */
-        div[data-testid="stToggle"] label, div[data-testid="stToggle"] p {
-            color: #1a202c !important;
-        }
+        .main { background-color: #0b0d11; color: #e2e8f0; }
+        .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -218,7 +167,7 @@ else:
         (df_agg_commune["code_departement"] == dept_code)
     ]
 
-# --- KPIs : 5 blocs colorés ---
+# --- KPIs : 2 métriques + 3 blocs colorés ---
 nb_zones    = len(df_m)
 mean_rate   = df_m["compliance_rate"].mean() if not df_m.empty else 0
 nb_conforme  = len(df_m[df_m["compliance_rate"] >= 95])
@@ -226,32 +175,27 @@ nb_vigilance = len(df_m[(df_m["compliance_rate"] >= 80) & (df_m["compliance_rate
 nb_alerte    = len(df_m[df_m["compliance_rate"] < 80])
 
 c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("Zones", f"{nb_zones}")
+c2.metric("Conformité", f"{mean_rate:.1f}%")
 
 if _dark:
-    KPI_STYLE_STANDARD = "background:#151921;border:1px solid #232a35;padding:15px;border-radius:12px"
     KPI_CARDS = [
-        (c1, "Zones",            f"{nb_zones}", KPI_STYLE_STANDARD, "#a0aec0", "#ffffff"),
-        (c2, "Conformité",       f"{mean_rate:.1f}%", KPI_STYLE_STANDARD, "#a0aec0", "#ffffff"),
-        (c3, "Conforme ≥95%",    nb_conforme,  "background:#0a1f14;border:1px solid #1e4030", "#a0aec0", "#32ff7e"),
-        (c4, "Vigilance 80–95%", nb_vigilance, "background:#1a1500;border:1px solid #3a3000", "#a0aec0", "#ffaf40"),
-        (c5, "Alerte &lt;80%",   nb_alerte,    "background:#1a0808;border:1px solid #3a1515", "#a0aec0", "#ff4d4d"),
+        (c3, "Conforme ≥95%",    nb_conforme,  "#0a1f14", "#1e4030", "#32ff7e", "#a0aec0"),
+        (c4, "Vigilance 80–95%", nb_vigilance, "#1a1500", "#3a3000", "#ffaf40", "#a0aec0"),
+        (c5, "Alerte &lt;80%",   nb_alerte,    "#1a0808", "#3a1515", "#ff4d4d", "#a0aec0"),
     ]
 else:
-    KPI_STYLE_STANDARD = "background:#f0f2f6;border:1px solid #dfe2e6;padding:15px;border-radius:12px"
     KPI_CARDS = [
-        (c1, "Zones",            f"{nb_zones}", KPI_STYLE_STANDARD, "#4a5568", "#1a202c"),
-        (c2, "Conformité",       f"{mean_rate:.1f}%", KPI_STYLE_STANDARD, "#4a5568", "#1a202c"),
-        (c3, "Conforme ≥95%",    nb_conforme,  "background:#f0fff4;border:1px solid #9ae6b4", "#4a5568", "#276749"),
-        (c4, "Vigilance 80–95%", nb_vigilance, "background:#fffaf0;border:1px solid #fbd38d", "#4a5568", "#c05621"),
-        (c5, "Alerte &lt;80%",   nb_alerte,    "background:#fff5f5;border:1px solid #fed7d7", "#4a5568", "#c53030"),
+        (c3, "Conforme ≥95%",    nb_conforme,  "#f0fff4", "#9ae6b4", "#276749", "#4a5568"),
+        (c4, "Vigilance 80–95%", nb_vigilance, "#fffaf0", "#fbd38d", "#c05621", "#4a5568"),
+        (c5, "Alerte &lt;80%",   nb_alerte,    "#fff5f5", "#fed7d7", "#c53030", "#4a5568"),
     ]
-
-for col, label, count, style, label_color, val_color in KPI_CARDS:
+for col, label, count, bg, border, color, label_color in KPI_CARDS:
     with col:
         st.markdown(f"""
-            <div style="{style};padding:15px;border-radius:12px">
+            <div style="background:{bg};border:1px solid {border};padding:15px;border-radius:12px">
                 <div style="font-size:0.8rem;color:{label_color};margin-bottom:6px">{label}</div>
-                <div style="font-size:2rem;font-weight:700;color:{val_color};line-height:1">{count}</div>
+                <div style="font-size:2rem;font-weight:700;color:{color};line-height:1">{count}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -259,6 +203,7 @@ for col, label, count, style, label_color, val_color in KPI_CARDS:
 st.markdown("<div style='margin-top:14px'></div>", unsafe_allow_html=True)
 st.pills(
     "Mois", options=list(MOIS_LABELS.values()),
+    default=selected_month_label,
     key="selected_month_label",
     label_visibility="collapsed",
 )
