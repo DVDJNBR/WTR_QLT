@@ -19,14 +19,14 @@ jobs:
           switches: -avz --exclude='data/' --exclude='__pycache__/' --exclude='*.pyc'
           path: app/
           remote_path: /home/ubuntu/qlt-eau/app/
-          remote_host: 91.134.43.150
+          remote_host: ${{ secrets.VPS_IP }}
           remote_user: ubuntu
           remote_key: ${{ secrets.VPS_SSH_KEY }}
 
       - name: Rebuild et restart Streamlit
         uses: appleboy/ssh-action@v1
         with:
-          host: 91.134.43.150
+          host: ${{ secrets.VPS_IP }}
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
