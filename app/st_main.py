@@ -126,15 +126,17 @@ st.markdown("""
 if _dark:
     st.markdown("""
         <style>
-        .main { background-color: #0b0d11; color: #e2e8f0; }
-        .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
+        [data-testid="stAppViewContainer"], .main, .stApp { background-color: #0b0d11 !important; color: #e2e8f0 !important; }
+        [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
+        .stMetric { background-color: #151921 !important; border: 1px solid #232a35 !important; padding: 15px; border-radius: 12px; }
         </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
         <style>
-        .main { background-color: #ffffff; color: #31333f; }
-        .stMetric { background-color: #f0f2f6; border: 1px solid #dfe2e6; padding: 15px; border-radius: 12px; }
+        [data-testid="stAppViewContainer"], .main, .stApp { background-color: #ffffff !important; color: #31333f !important; }
+        [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
+        .stMetric { background-color: #f0f2f6 !important; border: 1px solid #dfe2e6 !important; padding: 15px; border-radius: 12px; }
         </style>
     """, unsafe_allow_html=True)
 
