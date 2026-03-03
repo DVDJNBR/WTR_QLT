@@ -128,7 +128,34 @@ if _dark:
         <style>
         [data-testid="stAppViewContainer"], .main, .stApp { background-color: #0b0d11 !important; color: #e2e8f0 !important; }
         [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
-        .stMetric { background-color: #151921 !important; border: 1px solid #232a35 !important; padding: 15px; border-radius: 12px; }
+        
+        /* Metrics */
+        [data-testid="stMetric"] { 
+            background-color: #151921 !important; 
+            border: 1px solid #232a35 !important; 
+            padding: 15px; 
+            border-radius: 12px; 
+        }
+        [data-testid="stMetric"] label, [data-testid="stMetric"] div { color: #e2e8f0 !important; }
+
+        /* Widgets (Selectbox, Pills, Buttons) */
+        div[data-baseweb="select"] > div { background-color: #151921 !important; color: #e2e8f0 !important; border-color: #232a35 !important; }
+        div[data-baseweb="popover"] { background-color: #151921 !important; color: #e2e8f0 !important; }
+        div[role="listbox"] { background-color: #151921 !important; }
+        div[role="option"] { color: #e2e8f0 !important; }
+        div[role="option"]:hover { background-color: #232a35 !important; }
+        
+        /* Pills */
+        div[data-testid="stPills"] button { background-color: #151921 !important; color: #e2e8f0 !important; border: 1px solid #232a35 !important; }
+        div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; color: #ffffff !important; }
+
+        /* Buttons */
+        div.stButton > button { background-color: #151921 !important; color: #e2e8f0 !important; border: 1px solid #232a35 !important; }
+        div.stButton > button:hover { border-color: #60a5fa !important; color: #60a5fa !important; }
+        
+        /* Generic text colors */
+        .stMarkdown p, .stCaption { color: #a0aec0 !important; }
+        h1, h2, h3 { color: #ffffff !important; }
         </style>
     """, unsafe_allow_html=True)
 else:
@@ -136,7 +163,13 @@ else:
         <style>
         [data-testid="stAppViewContainer"], .main, .stApp { background-color: #ffffff !important; color: #31333f !important; }
         [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
-        .stMetric { background-color: #f0f2f6 !important; border: 1px solid #dfe2e6 !important; padding: 15px; border-radius: 12px; }
+        
+        [data-testid="stMetric"] { 
+            background-color: #f0f2f6 !important; 
+            border: 1px solid #dfe2e6 !important; 
+            padding: 15px; 
+            border-radius: 12px; 
+        }
         </style>
     """, unsafe_allow_html=True)
 
