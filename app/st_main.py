@@ -182,8 +182,6 @@ else:
     """, unsafe_allow_html=True)
 
 def reset_view():
-
-def reset_view():
     st.session_state.view_level         = "National"
     st.session_state.selected_dept_code = None
     st.session_state["dept_search"]     = ""
