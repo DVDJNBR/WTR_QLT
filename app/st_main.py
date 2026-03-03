@@ -104,10 +104,10 @@ if "view_level"           not in st.session_state: st.session_state.view_level  
 if "selected_dept_code"   not in st.session_state: st.session_state.selected_dept_code   = None
 if "selected_month_label" not in st.session_state: st.session_state.selected_month_label = "Janvier"
 if "commune_search"       not in st.session_state: st.session_state.commune_search       = ""
-if "dark_mode"            not in st.session_state: st.session_state.dark_mode            = (st.get_option("theme.base") == "dark")
+if "dark_mode"            not in st.session_state: st.session_state.dark_mode            = True
 
 # Thème courant
-_dark            = st.session_state.get("dark_mode", False)
+_dark            = st.session_state.get("dark_mode", True)
 PLOTLY_TEMPLATE  = "plotly_dark" if _dark else "plotly"
 MAP_STYLE        = "carto-darkmatter" if _dark else "carto-positron"
 
@@ -214,7 +214,6 @@ for col, label, count, bg, border, color, label_color in KPI_CARDS:
 st.markdown("<div style='margin-top:14px'></div>", unsafe_allow_html=True)
 st.pills(
     "Mois", options=list(MOIS_LABELS.values()),
-    default=selected_month_label,
     key="selected_month_label",
     label_visibility="collapsed",
 )
