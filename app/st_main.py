@@ -126,36 +126,75 @@ st.markdown("""
 if _dark:
     st.markdown("""
         <style>
-        [data-testid="stAppViewContainer"], .main, .stApp { background-color: #0b0d11 !important; color: #e2e8f0 !important; }
+        /* Global Background */
+        [data-testid="stAppViewContainer"], .main, .stApp { 
+            background-color: #0b0d11 !important; 
+            color: #e2e8f0 !important; 
+        }
         [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
         
-        /* Metrics */
-        [data-testid="stMetric"] { 
+        /* Metrics / KPI Cards */
+        [data-testid="stMetric"], [data-testid="metric-container"] { 
             background-color: #151921 !important; 
             border: 1px solid #232a35 !important; 
-            padding: 15px; 
-            border-radius: 12px; 
+            padding: 15px !important; 
+            border-radius: 12px !important; 
         }
-        [data-testid="stMetric"] label, [data-testid="stMetric"] div { color: #e2e8f0 !important; }
+        [data-testid="stMetric"] label, [data-testid="stMetric"] div, [data-testid="stMetric"] p { 
+            color: #e2e8f0 !important; 
+        }
 
-        /* Widgets (Selectbox, Pills, Buttons) */
-        div[data-baseweb="select"] > div { background-color: #151921 !important; color: #e2e8f0 !important; border-color: #232a35 !important; }
-        div[data-baseweb="popover"] { background-color: #151921 !important; color: #e2e8f0 !important; }
-        div[role="listbox"] { background-color: #151921 !important; }
-        div[role="option"] { color: #e2e8f0 !important; }
-        div[role="option"]:hover { background-color: #232a35 !important; }
+        /* Selectbox / Dropdowns */
+        [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+        [data-testid="stSelectbox"] div[data-baseweb="select"] {
+            background-color: #151921 !important;
+            color: #e2e8f0 !important;
+            border-color: #232a35 !important;
+        }
+        [data-testid="stSelectbox"] svg { fill: #e2e8f0 !important; }
         
+        /* Dropdown Menu Items */
+        div[data-baseweb="popover"] ul { background-color: #151921 !important; }
+        div[data-baseweb="popover"] li { background-color: #151921 !important; color: #e2e8f0 !important; }
+        div[data-baseweb="popover"] li:hover { background-color: #232a35 !important; }
+
         /* Pills */
-        div[data-testid="stPills"] button { background-color: #151921 !important; color: #e2e8f0 !important; border: 1px solid #232a35 !important; }
-        div[data-testid="stPills"] button[aria-checked="true"] { background-color: #60a5fa !important; color: #ffffff !important; }
+        [data-testid="stPills"] button { 
+            background-color: #151921 !important; 
+            color: #e2e8f0 !important; 
+            border: 1px solid #232a35 !important; 
+        }
+        [data-testid="stPills"] button[aria-checked="true"] { 
+            background-color: #60a5fa !important; 
+            color: #ffffff !important; 
+            border-color: #60a5fa !important;
+        }
+        [data-testid="stPills"] p { color: #e2e8f0 !important; }
 
         /* Buttons */
-        div.stButton > button { background-color: #151921 !important; color: #e2e8f0 !important; border: 1px solid #232a35 !important; }
-        div.stButton > button:hover { border-color: #60a5fa !important; color: #60a5fa !important; }
+        .stButton button { 
+            background-color: #151921 !important; 
+            color: #e2e8f0 !important; 
+            border: 1px solid #232a35 !important; 
+        }
+        .stButton button:hover { 
+            border-color: #60a5fa !important; 
+            color: #60a5fa !important; 
+        }
+
+        /* Input / Search */
+        [data-testid="stTextInput"] input {
+            background-color: #151921 !important;
+            color: #e2e8f0 !important;
+            border-color: #232a35 !important;
+        }
+
+        /* General text / labels */
+        .stMarkdown p, .stCaption, label, .stText { color: #a0aec0 !important; }
+        h1, h2, h3, h4, h5, h6 { color: #ffffff !important; }
         
-        /* Generic text colors */
-        .stMarkdown p, .stCaption { color: #a0aec0 !important; }
-        h1, h2, h3 { color: #ffffff !important; }
+        /* Divider */
+        hr { border-color: #232a35 !important; }
         </style>
     """, unsafe_allow_html=True)
 else:
@@ -163,12 +202,11 @@ else:
         <style>
         [data-testid="stAppViewContainer"], .main, .stApp { background-color: #ffffff !important; color: #31333f !important; }
         [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
-        
         [data-testid="stMetric"] { 
             background-color: #f0f2f6 !important; 
             border: 1px solid #dfe2e6 !important; 
-            padding: 15px; 
-            border-radius: 12px; 
+            padding: 15px !important; 
+            border-radius: 12px !important; 
         }
         </style>
     """, unsafe_allow_html=True)
