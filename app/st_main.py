@@ -127,82 +127,52 @@ if _dark:
     st.markdown("""
         <style>
         /* Global Background */
-        [data-testid="stAppViewContainer"], .main, .stApp { 
+        .stApp, [data-testid="stAppViewContainer"], .main { 
             background-color: #0b0d11 !important; 
             color: #e2e8f0 !important; 
         }
-        [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
         
-        /* Metrics / KPI Cards */
-        [data-testid="stMetric"], [data-testid="metric-container"] { 
-            background-color: #151921 !important; 
-            border: 1px solid #232a35 !important; 
-            padding: 15px !important; 
-            border-radius: 12px !important; 
-        }
-        [data-testid="stMetric"] label, [data-testid="stMetric"] div, [data-testid="stMetric"] p { 
-            color: #e2e8f0 !important; 
-        }
-
-        /* Selectbox / Dropdowns */
-        [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-        [data-testid="stSelectbox"] div[data-baseweb="select"] {
-            background-color: #151921 !important;
+        /* Force widget backgrounds in Dark Mode */
+        div[data-baseweb="select"] > div, 
+        div[data-testid="stSelectbox"] div,
+        div[data-testid="stPills"] button,
+        div[data-testid="stTextInput"] input,
+        .stButton button {
+            background-color: #1a1f26 !important;
             color: #e2e8f0 !important;
-            border-color: #232a35 !important;
-        }
-        [data-testid="stSelectbox"] svg { fill: #e2e8f0 !important; }
-        
-        /* Dropdown Menu Items */
-        div[data-baseweb="popover"] ul { background-color: #151921 !important; }
-        div[data-baseweb="popover"] li { background-color: #151921 !important; color: #e2e8f0 !important; }
-        div[data-baseweb="popover"] li:hover { background-color: #232a35 !important; }
-
-        /* Pills */
-        [data-testid="stPills"] button { 
-            background-color: #151921 !important; 
-            color: #e2e8f0 !important; 
-            border: 1px solid #232a35 !important; 
-        }
-        [data-testid="stPills"] button[aria-checked="true"] { 
-            background-color: #60a5fa !important; 
-            color: #ffffff !important; 
-            border-color: #60a5fa !important;
-        }
-        [data-testid="stPills"] p { color: #e2e8f0 !important; }
-
-        /* Buttons */
-        .stButton button { 
-            background-color: #151921 !important; 
-            color: #e2e8f0 !important; 
-            border: 1px solid #232a35 !important; 
-        }
-        .stButton button:hover { 
-            border-color: #60a5fa !important; 
-            color: #60a5fa !important; 
+            border-color: #2d3748 !important;
         }
 
-        /* Input / Search */
-        [data-testid="stTextInput"] input {
-            background-color: #151921 !important;
+        /* Dropdowns items */
+        div[role="listbox"] div {
+            background-color: #1a1f26 !important;
             color: #e2e8f0 !important;
-            border-color: #232a35 !important;
+        }
+        
+        /* Active Pill */
+        div[data-testid="stPills"] button[aria-checked="true"] {
+            background-color: #3182ce !important;
+            color: #ffffff !important;
         }
 
-        /* General text / labels */
-        .stMarkdown p, .stCaption, label, .stText { color: #a0aec0 !important; }
-        h1, h2, h3, h4, h5, h6 { color: #ffffff !important; }
+        /* Metric/KPI titles and text */
+        [data-testid="stMetricValue"] { color: #ffffff !important; }
+        [data-testid="stMetricLabel"] p { color: #a0aec0 !important; }
         
-        /* Divider */
-        hr { border-color: #232a35 !important; }
+        /* Titles */
+        h1, h2, h3, h4 { color: #ffffff !important; }
+        .stMarkdown p, label { color: #cbd5e0 !important; }
         </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
         <style>
-        [data-testid="stAppViewContainer"], .main, .stApp { background-color: #ffffff !important; color: #31333f !important; }
-        [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
-        [data-testid="stMetric"] { 
+        .stApp, [data-testid="stAppViewContainer"], .main { 
+            background-color: #ffffff !important; 
+            color: #31333f !important; 
+        }
+        /* Metrics in light mode */
+        div[data-testid="stMetric"] { 
             background-color: #f0f2f6 !important; 
             border: 1px solid #dfe2e6 !important; 
             padding: 15px !important; 
@@ -210,6 +180,8 @@ else:
         }
         </style>
     """, unsafe_allow_html=True)
+
+def reset_view():
 
 def reset_view():
     st.session_state.view_level         = "National"
@@ -258,7 +230,7 @@ else:
         (df_agg_commune["code_departement"] == dept_code)
     ]
 
-# --- KPIs : 2 métriques + 3 blocs colorés ---
+# --- KPIs : 5 blocs colorés ---
 nb_zones    = len(df_m)
 mean_rate   = df_m["compliance_rate"].mean() if not df_m.empty else 0
 nb_conforme  = len(df_m[df_m["compliance_rate"] >= 95])
@@ -266,27 +238,32 @@ nb_vigilance = len(df_m[(df_m["compliance_rate"] >= 80) & (df_m["compliance_rate
 nb_alerte    = len(df_m[df_m["compliance_rate"] < 80])
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Zones", f"{nb_zones}")
-c2.metric("Conformité", f"{mean_rate:.1f}%")
 
 if _dark:
+    KPI_STYLE_STANDARD = "background:#151921;border:1px solid #232a35;padding:15px;border-radius:12px"
     KPI_CARDS = [
-        (c3, "Conforme ≥95%",    nb_conforme,  "#0a1f14", "#1e4030", "#32ff7e", "#a0aec0"),
-        (c4, "Vigilance 80–95%", nb_vigilance, "#1a1500", "#3a3000", "#ffaf40", "#a0aec0"),
-        (c5, "Alerte &lt;80%",   nb_alerte,    "#1a0808", "#3a1515", "#ff4d4d", "#a0aec0"),
+        (c1, "Zones",            f"{nb_zones}", KPI_STYLE_STANDARD, "#a0aec0", "#ffffff"),
+        (c2, "Conformité",       f"{mean_rate:.1f}%", KPI_STYLE_STANDARD, "#a0aec0", "#ffffff"),
+        (c3, "Conforme ≥95%",    nb_conforme,  "background:#0a1f14;border:1px solid #1e4030", "#a0aec0", "#32ff7e"),
+        (c4, "Vigilance 80–95%", nb_vigilance, "background:#1a1500;border:1px solid #3a3000", "#a0aec0", "#ffaf40"),
+        (c5, "Alerte &lt;80%",   nb_alerte,    "background:#1a0808;border:1px solid #3a1515", "#a0aec0", "#ff4d4d"),
     ]
 else:
+    KPI_STYLE_STANDARD = "background:#f0f2f6;border:1px solid #dfe2e6;padding:15px;border-radius:12px"
     KPI_CARDS = [
-        (c3, "Conforme ≥95%",    nb_conforme,  "#f0fff4", "#9ae6b4", "#276749", "#4a5568"),
-        (c4, "Vigilance 80–95%", nb_vigilance, "#fffaf0", "#fbd38d", "#c05621", "#4a5568"),
-        (c5, "Alerte &lt;80%",   nb_alerte,    "#fff5f5", "#fed7d7", "#c53030", "#4a5568"),
+        (c1, "Zones",            f"{nb_zones}", KPI_STYLE_STANDARD, "#4a5568", "#1a202c"),
+        (c2, "Conformité",       f"{mean_rate:.1f}%", KPI_STYLE_STANDARD, "#4a5568", "#1a202c"),
+        (c3, "Conforme ≥95%",    nb_conforme,  "background:#f0fff4;border:1px solid #9ae6b4", "#4a5568", "#276749"),
+        (c4, "Vigilance 80–95%", nb_vigilance, "background:#fffaf0;border:1px solid #fbd38d", "#4a5568", "#c05621"),
+        (c5, "Alerte &lt;80%",   nb_alerte,    "background:#fff5f5;border:1px solid #fed7d7", "#4a5568", "#c53030"),
     ]
-for col, label, count, bg, border, color, label_color in KPI_CARDS:
+
+for col, label, count, style, label_color, val_color in KPI_CARDS:
     with col:
         st.markdown(f"""
-            <div style="background:{bg};border:1px solid {border};padding:15px;border-radius:12px">
+            <div style="{style};padding:15px;border-radius:12px">
                 <div style="font-size:0.8rem;color:{label_color};margin-bottom:6px">{label}</div>
-                <div style="font-size:2rem;font-weight:700;color:{color};line-height:1">{count}</div>
+                <div style="font-size:2rem;font-weight:700;color:{val_color};line-height:1">{count}</div>
             </div>
         """, unsafe_allow_html=True)
 
