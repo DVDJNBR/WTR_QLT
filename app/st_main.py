@@ -116,62 +116,59 @@ PLOTLY_FONT_COLOR = "#e2e8f0" if _dark else "#1a202c"
 _CSS_COMMON = """
     /* Largeur max */
     .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
-    /* Centrage des pills mois — plusieurs sélecteurs pour couvrir toutes versions Streamlit */
+    /* Pills pleine largeur */
     [data-testid="stPillsContainer"],
     [data-testid="stPillsGroup"],
     .stPills > div,
-    div[class*="Pills"] { display: flex !important; flex-wrap: wrap !important; justify-content: center !important; }
+    div[class*="Pills"] {
+        display: flex !important; flex-wrap: wrap !important;
+        justify-content: space-between !important; width: 100% !important;
+    }
+    [data-testid="stPillsContainer"] button,
+    [data-testid="stPillsGroup"] button,
+    .stPills button { flex: 1 1 auto !important; text-align: center !important; }
 """
 
 if _dark:
     st.markdown(f"""
         <style>
         {_CSS_COMMON}
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {{
+        /* Fond global */
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main,
+        header[data-testid="stHeader"], [data-testid="stToolbar"] {{
             background-color: #0b0d11 !important; color: #e2e8f0 !important;
         }}
         .stMetric {{ background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }}
+        /* BaseUI widgets */
+        [data-baseweb="select"] > div, [data-baseweb="input"] > div,
+        [data-baseweb="base-input"], [data-baseweb="textarea"] {{
+            background-color: #151921 !important; color: #e2e8f0 !important; border-color: #232a35 !important;
+        }}
+        [data-baseweb="menu"], [data-baseweb="popover"] > div {{
+            background-color: #151921 !important; color: #e2e8f0 !important;
+        }}
+        [data-baseweb="menu"] li:hover {{ background-color: #232a35 !important; }}
+        /* Pills dark */
+        [data-testid="stPillsContainer"] button,
+        [data-testid="stPillsGroup"] button, .stPills button {{
+            background-color: #1e2530 !important; color: #e2e8f0 !important; border-color: #232a35 !important;
+        }}
+        [data-testid="stPillsContainer"] button[aria-checked="true"],
+        [data-testid="stPillsGroup"] button[aria-checked="true"],
+        .stPills button[aria-checked="true"] {{
+            background-color: #3b82f6 !important; color: #ffffff !important;
+        }}
+        label, p, h1, h2, h3, .stMarkdown, .stCaption {{ color: #e2e8f0 !important; }}
         </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown(f"""
         <style>
         {_CSS_COMMON}
-        /* Fond et texte global */
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {{
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main,
+        header[data-testid="stHeader"], [data-testid="stToolbar"] {{
             background-color: #f8fafc !important; color: #1a202c !important;
         }}
-        /* Selectbox & inputs BaseUI */
-        [data-baseweb="select"] > div,
-        [data-baseweb="select"] [data-baseweb="select"] > div,
-        [data-baseweb="input"] > div,
-        [data-baseweb="base-input"] {{
-            background-color: #ffffff !important;
-            color: #1a202c !important;
-            border-color: #cbd5e0 !important;
-        }}
-        /* Dropdown list */
-        [data-baseweb="menu"], [data-baseweb="popover"] > div {{
-            background-color: #ffffff !important;
-            color: #1a202c !important;
-        }}
-        [data-baseweb="menu"] li:hover {{ background-color: #e2e8f0 !important; }}
-        /* Pills boutons */
-        [data-testid="stPillsContainer"] button,
-        [data-testid="stPillsGroup"] button,
-        .stPills button {{
-            background-color: #e2e8f0 !important;
-            color: #2d3748 !important;
-            border-color: #cbd5e0 !important;
-        }}
-        [data-testid="stPillsContainer"] button[aria-checked="true"],
-        [data-testid="stPillsGroup"] button[aria-checked="true"],
-        .stPills button[aria-checked="true"] {{
-            background-color: #3b82f6 !important;
-            color: #ffffff !important;
-        }}
-        /* Labels & captions */
-        label, .stMarkdown, .stCaption, p, h1, h2, h3 {{ color: #1a202c !important; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -258,14 +255,13 @@ for col, label, count, bg, border, color, label_color in KPI_CARDS:
 st.markdown("<div style='margin-top:14px'></div>", unsafe_allow_html=True)
 st.pills(
     "Mois", options=list(MOIS_LABELS.values()),
-    default=selected_month_label,
     key="selected_month_label",
     label_visibility="collapsed",
 )
 
 # --- Recherche (sous les mois) ---
 st.caption("Rechercher par")
-sr_dept, sr_commune, sr_reset = st.columns([7, 7, 2])
+sr_dept, sr_commune, sr_reset = st.columns([6, 6, 2])
 
 with sr_dept:
     sorted_depts = sorted(dept_names.items(), key=lambda x: x[1])
@@ -294,9 +290,13 @@ with sr_commune:
     )
 
 with sr_reset:
-    if st.session_state.view_level == "Department":
-        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
-        st.button("Retour", on_click=reset_view, use_container_width=True)
+    st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+    st.button(
+        "← Retour",
+        on_click=reset_view,
+        disabled=st.session_state.view_level != "Department",
+        use_container_width=True,
+    )
 
 st.divider()
 
