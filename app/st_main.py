@@ -115,8 +115,30 @@ MAP_STYLE        = "carto-darkmatter" if _dark else "carto-positron"
 if _dark:
     st.markdown("""
         <style>
-        .main { background-color: #0b0d11; color: #e2e8f0; }
+        .stApp, .stApp > div, [data-testid="stAppViewContainer"],
+        [data-testid="stMain"], .main, section.main > div {
+            background-color: #0b0d11 !important;
+            color: #e2e8f0 !important;
+        }
         .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
+        /* Centrage des pills mois */
+        [data-testid="stPillsContainer"] { justify-content: center !important; }
+        /* Largeur max */
+        .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+        .stApp, .stApp > div, [data-testid="stAppViewContainer"],
+        [data-testid="stMain"], .main, section.main > div {
+            background-color: #ffffff !important;
+            color: #1a202c !important;
+        }
+        /* Centrage des pills mois */
+        [data-testid="stPillsContainer"] { justify-content: center !important; }
+        /* Largeur max */
+        .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
         </style>
     """, unsafe_allow_html=True)
 
