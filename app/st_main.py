@@ -110,35 +110,68 @@ if "dark_mode"            not in st.session_state: st.session_state.dark_mode   
 _dark            = st.session_state.get("dark_mode", False)
 PLOTLY_TEMPLATE  = "plotly_dark" if _dark else "plotly"
 MAP_STYLE        = "carto-darkmatter" if _dark else "carto-positron"
+PLOTLY_FONT_COLOR = "#e2e8f0" if _dark else "#1a202c"
 
 # Injection CSS adaptative
+_CSS_COMMON = """
+    /* Largeur max */
+    .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+    /* Centrage des pills mois — plusieurs sélecteurs pour couvrir toutes versions Streamlit */
+    [data-testid="stPillsContainer"],
+    [data-testid="stPillsGroup"],
+    .stPills > div,
+    div[class*="Pills"] { display: flex !important; flex-wrap: wrap !important; justify-content: center !important; }
+"""
+
 if _dark:
-    st.markdown("""
+    st.markdown(f"""
         <style>
-        .stApp, .stApp > div, [data-testid="stAppViewContainer"],
-        [data-testid="stMain"], .main, section.main > div {
-            background-color: #0b0d11 !important;
-            color: #e2e8f0 !important;
-        }
-        .stMetric { background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }
-        /* Centrage des pills mois */
-        [data-testid="stPillsContainer"] { justify-content: center !important; }
-        /* Largeur max */
-        .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+        {_CSS_COMMON}
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {{
+            background-color: #0b0d11 !important; color: #e2e8f0 !important;
+        }}
+        .stMetric {{ background-color: #151921; border: 1px solid #232a35; padding: 15px; border-radius: 12px; }}
         </style>
     """, unsafe_allow_html=True)
 else:
-    st.markdown("""
+    st.markdown(f"""
         <style>
-        .stApp, .stApp > div, [data-testid="stAppViewContainer"],
-        [data-testid="stMain"], .main, section.main > div {
+        {_CSS_COMMON}
+        /* Fond et texte global */
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {{
+            background-color: #f8fafc !important; color: #1a202c !important;
+        }}
+        /* Selectbox & inputs BaseUI */
+        [data-baseweb="select"] > div,
+        [data-baseweb="select"] [data-baseweb="select"] > div,
+        [data-baseweb="input"] > div,
+        [data-baseweb="base-input"] {{
             background-color: #ffffff !important;
             color: #1a202c !important;
-        }
-        /* Centrage des pills mois */
-        [data-testid="stPillsContainer"] { justify-content: center !important; }
-        /* Largeur max */
-        .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+            border-color: #cbd5e0 !important;
+        }}
+        /* Dropdown list */
+        [data-baseweb="menu"], [data-baseweb="popover"] > div {{
+            background-color: #ffffff !important;
+            color: #1a202c !important;
+        }}
+        [data-baseweb="menu"] li:hover {{ background-color: #e2e8f0 !important; }}
+        /* Pills boutons */
+        [data-testid="stPillsContainer"] button,
+        [data-testid="stPillsGroup"] button,
+        .stPills button {{
+            background-color: #e2e8f0 !important;
+            color: #2d3748 !important;
+            border-color: #cbd5e0 !important;
+        }}
+        [data-testid="stPillsContainer"] button[aria-checked="true"],
+        [data-testid="stPillsGroup"] button[aria-checked="true"],
+        .stPills button[aria-checked="true"] {{
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+        }}
+        /* Labels & captions */
+        label, .stMarkdown, .stCaption, p, h1, h2, h3 {{ color: #1a202c !important; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -494,13 +527,14 @@ def make_conformity_fig(df_td, title, zone_label="Zone", df_commune_td=None, com
 
     fig.update_layout(
         template=PLOTLY_TEMPLATE, height=220,
-        title=dict(text=title, font=dict(size=13), x=0, pad=dict(l=0)),
-        yaxis=dict(range=[ymin, ymax], title="%", ticksuffix="%"),
-        xaxis=dict(tickfont=dict(size=10)),
+        title=dict(text=title, font=dict(size=13, color=PLOTLY_FONT_COLOR), x=0, pad=dict(l=0)),
+        yaxis=dict(range=[ymin, ymax], title="%", ticksuffix="%", tickfont=dict(color=PLOTLY_FONT_COLOR)),
+        xaxis=dict(tickfont=dict(size=10, color=PLOTLY_FONT_COLOR)),
         showlegend=df_commune_td is not None,
-        legend=dict(orientation="h", y=-0.25, x=0, font=dict(size=10)),
+        legend=dict(orientation="h", y=-0.25, x=0, font=dict(size=10, color=PLOTLY_FONT_COLOR)),
         margin=dict(l=10, r=10, t=35, b=40 if df_commune_td is not None else 10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=PLOTLY_FONT_COLOR),
     )
     return fig
 
@@ -630,13 +664,14 @@ def make_params_fig(df_pct, scope_label):
         template=PLOTLY_TEMPLATE, height=260,
         title=dict(
             text=f"Niveaux physico-chimiques — {scope_label} (% de la limite légale)",
-            font=dict(size=13), x=0,
+            font=dict(size=13, color=PLOTLY_FONT_COLOR), x=0,
         ),
-        yaxis=dict(title="% limite", ticksuffix="%", rangemode="tozero"),
-        xaxis=dict(tickfont=dict(size=10)),
-        legend=dict(orientation="h", y=-0.25, x=0, font=dict(size=10)),
+        yaxis=dict(title="% limite", ticksuffix="%", rangemode="tozero", tickfont=dict(color=PLOTLY_FONT_COLOR)),
+        xaxis=dict(tickfont=dict(size=10, color=PLOTLY_FONT_COLOR)),
+        legend=dict(orientation="h", y=-0.25, x=0, font=dict(size=10, color=PLOTLY_FONT_COLOR)),
         margin=dict(l=10, r=10, t=40, b=10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=PLOTLY_FONT_COLOR),
     )
     return fig
 
@@ -676,12 +711,13 @@ def make_bact_fig(df_bact, scope_label, has_detections=True):
 
     fig.update_layout(
         template=PLOTLY_TEMPLATE, height=220, barmode="group",
-        title=dict(text=f"Détections bactériologiques — {scope_label}", font=dict(size=13), x=0),
-        yaxis=yaxis, xaxis=dict(tickfont=dict(size=10)),
+        title=dict(text=f"Détections bactériologiques — {scope_label}", font=dict(size=13, color=PLOTLY_FONT_COLOR), x=0),
+        yaxis=yaxis, xaxis=dict(tickfont=dict(size=10, color=PLOTLY_FONT_COLOR)),
         showlegend=has_detections, legend=legend if has_detections else dict(),
         annotations=annotations,
         margin=dict(l=10, r=10, t=40, b=10),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=PLOTLY_FONT_COLOR),
     )
     return fig
 
