@@ -116,10 +116,10 @@ PLOTLY_FONT_COLOR = "#e2e8f0" if _dark else "#1a202c"
 _CSS_COMMON = """
     /* Largeur max */
     .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
-    /* Pills pleine largeur — role=radio est l'attribut réel des boutons pills Streamlit */
-    .stPills { width: 100% !important; }
-    .stPills > div { display: flex !important; flex-wrap: wrap !important; width: 100% !important; gap: 6px !important; }
-    button[role="radio"] { flex: 1 1 auto !important; justify-content: center !important; }
+    /* Pills pleine largeur — role=radio est l'attribut réel des boutons pills Streamlit (ancien) */
+    div[data-testid="stButtonGroup"] { width: 100% !important; display: flex !important; justify-content: center !important; }
+    div[data-testid="stButtonGroup"] > div { display: flex !important; flex-wrap: wrap !important; width: 100% !important; gap: 6px !important; justify-content: center !important; }
+    button[data-testid="stBaseButton-pills"], button[data-testid="stBaseButton-pillsActive"] { flex: 1 1 auto !important; justify-content: center !important; }
 """
 
 if _dark:
@@ -141,12 +141,15 @@ if _dark:
             background-color: #151921 !important; color: #e2e8f0 !important;
         }}
         [data-baseweb="menu"] li:hover {{ background-color: #232a35 !important; }}
-        /* Pills (role=radio) dark */
-        button[role="radio"] {{
+        /* Pills dark */
+        button[data-testid="stBaseButton-pills"] {{
             background-color: #1e2530 !important; color: #e2e8f0 !important; border-color: #232a35 !important;
         }}
-        button[role="radio"][aria-checked="true"] {{
-            background-color: #3b82f6 !important; color: #ffffff !important;
+        button[data-testid="stBaseButton-pillsActive"] {{
+            background-color: #3b82f6 !important; color: #ffffff !important; border-color: #3b82f6 !important;
+        }}
+        button[data-testid="stBaseButton-pills"]:hover {{
+            background-color: #232a35 !important;
         }}
         /* st.button (retour, etc.) dark */
         .stButton > button {{
@@ -156,6 +159,7 @@ if _dark:
             background-color: #13181f !important; color: #4a5568 !important;
         }}
         label, p, h1, h2, h3, .stMarkdown, .stCaption {{ color: #e2e8f0 !important; }}
+        button[data-testid="stBaseButton-pills"] p, button[data-testid="stBaseButton-pillsActive"] p {{ color: inherit !important; }}
         </style>
     """, unsafe_allow_html=True)
 else:
