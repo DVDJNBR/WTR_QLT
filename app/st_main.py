@@ -116,9 +116,9 @@ PLOTLY_FONT_COLOR = "#e2e8f0" if _dark else "#1a202c"
 _CSS_COMMON = """
     /* Largeur max */
     .block-container { max-width: 1200px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
-    /* Pills pleine largeur — role=radio est l'attribut réel des boutons pills Streamlit (ancien) */
-    div[data-testid="stButtonGroup"] { width: 100% !important; display: flex !important; justify-content: center !important; }
-    div[data-testid="stButtonGroup"] > div { display: flex !important; flex-wrap: wrap !important; width: 100% !important; gap: 6px !important; justify-content: center !important; }
+    /* Centrer les Pills Streamlit */
+    div[data-testid="stButtonGroup"] { width: 100% !important; }
+    div[data-testid="stButtonGroup"] > div { display: flex !important; justify-content: center !important; flex-wrap: wrap !important; margin: 0 auto !important; gap: 6px !important; }
     button[data-testid="stBaseButton-pills"], button[data-testid="stBaseButton-pillsActive"] { flex: 1 1 auto !important; justify-content: center !important; }
 """
 
