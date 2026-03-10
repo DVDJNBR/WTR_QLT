@@ -16,6 +16,15 @@ jobs:
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            if [ ! -d "/home/ubuntu/qlt-eau/.git" ]; then
+              # Première initialisation : migration vers git
+              [ -d "/home/ubuntu/qlt-eau/app/data" ] && cp -r /home/ubuntu/qlt-eau/app/data /tmp/qlt-data-backup
+              rm -rf /home/ubuntu/qlt-eau
+              git clone https://github.com/DVDJNBR/qlt-eau-FR-24.git /home/ubuntu/qlt-eau
+              [ -d "/tmp/qlt-data-backup" ] && cp -r /tmp/qlt-data-backup /home/ubuntu/qlt-eau/app/data
+            else
+              cd /home/ubuntu/qlt-eau && git pull origin main
+            fi
             cd /home/ubuntu/qlt-eau
             git pull origin main
             docker compose up --build -d
