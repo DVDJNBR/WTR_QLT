@@ -3,11 +3,22 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Docker Build
+        run: docker compose build
+
   deploy:
     runs-on: ubuntu-latest
+    needs: test-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -16,15 +27,6 @@ jobs:
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            if [ ! -d "/home/ubuntu/qlt-eau/.git" ]; then
-              # Première initialisation : migration vers git
-              [ -d "/home/ubuntu/qlt-eau/app/data" ] && cp -r /home/ubuntu/qlt-eau/app/data /tmp/qlt-data-backup
-              rm -rf /home/ubuntu/qlt-eau
-              git clone https://github.com/DVDJNBR/qlt-eau-FR-24.git /home/ubuntu/qlt-eau
-              [ -d "/tmp/qlt-data-backup" ] && cp -r /tmp/qlt-data-backup /home/ubuntu/qlt-eau/app/data
-            else
-              cd /home/ubuntu/qlt-eau && git pull origin main
-            fi
             cd /home/ubuntu/qlt-eau
             git pull origin main
             docker compose up --build -d
