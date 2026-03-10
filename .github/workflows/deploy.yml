@@ -3,33 +3,19 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
-    paths:
-      - "app/**"
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Rsync app vers VPS
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avz --exclude='data/' --exclude='__pycache__/' --exclude='*.pyc'
-          path: app/
-          remote_path: /home/ubuntu/qlt-eau/app/
-          remote_host: ${{ secrets.VPS_IP }}
-          remote_user: ubuntu
-          remote_key: ${{ secrets.VPS_SSH_KEY }}
-
-      - name: Rebuild et restart Streamlit
-        uses: appleboy/ssh-action@v1
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_IP }}
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /home/ubuntu/qlt-eau
-            docker compose build --no-cache streamlit
-            docker compose up -d --force-recreate
+            git pull origin main
+            docker compose up --build -d
