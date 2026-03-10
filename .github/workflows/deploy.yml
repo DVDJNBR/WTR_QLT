@@ -11,7 +11,8 @@ jobs:
   test-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Test Docker Build
         run: docker compose build
 
