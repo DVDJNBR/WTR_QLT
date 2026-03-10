@@ -32,4 +32,4 @@ jobs:
           script: |
             cd /home/ubuntu/qlt-eau
             docker compose build --no-cache streamlit
-            docker compose up -d
+            docker compose up -d --force-recreate
