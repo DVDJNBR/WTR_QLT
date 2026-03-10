@@ -1,0 +1,15 @@
+services:
+  streamlit:
+    build: ./app
+    container_name: qlt-eau-streamlit
+    volumes:
+      - ./data:/app/data:ro
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
