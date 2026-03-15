@@ -11,7 +11,7 @@ from pathlib import Path
 
 # --- Configuration ---
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
-st.set_page_config(page_title="Qualité Eau France", layout="wide", page_icon=str(ASSETS_DIR / "droplet.svg"))
+st.set_page_config(page_title="Qualité de l'eau en France 2024", layout="wide", page_icon=":material/water_drop:")
 
 # Le CSS dark/light est injecté plus bas après initialisation du session state
 
