@@ -26,19 +26,9 @@ Projet d'apprentissage data engineering pour se familiariser avec Azure Databric
 
 <table>
   <tr>
-    <td><img src="assets/01_app-carte-france-conformite.png" height="220"/></td>
-    <td><img src="assets/02_app-carte-nord-lille.png" height="220"/></td>
-    <td><img src="assets/03_app-graphiques-conformite-lille.png" height="220"/></td>
-    <td><img src="assets/04_api-swagger-overview.png" height="220"/></td>
-    <td><img src="assets/05_api-conformite-stats-erreur-503.png" height="220"/></td>
-    <td><img src="assets/06_api-departements-top-reponse.png" height="220"/></td>
-    <td><img src="assets/07_api-conformite-stats-reponse.png" height="220"/></td>
-    <td><img src="assets/08_api-parametres-liste.png" height="220"/></td>
-    <td><img src="assets/09_databricks-pipeline-dag.png" height="220"/></td>
-    <td><img src="assets/10_databricks-pipeline-tasks.png" height="220"/></td>
-    <td><img src="assets/11_databricks-notebook-silver-layer.png" height="220"/></td>
-    <td><img src="assets/12_azure-storage-gold-tables.png" height="220"/></td>
-    <td><img src="assets/13_silver-mesures-donnees-paris.png" height="220"/></td>
+    <td><img src="assets/01_app-carte-france-conformite.png" height="300"/></td>
+    <td><img src="assets/02_app-carte-nord-lille.png" height="300"/></td>
+    <td><img src="assets/03_app-graphiques-conformite-lille.png" height="300"/></td>
   </tr>
 </table>
 
@@ -79,6 +69,16 @@ Copier les notebooks dans le workspace Databricks et les exécuter dans l'ordre 
 | 3 | `03_Gold_Agregations.py` | Star schema + KPIs par département → Gold |
 | 4 | `04_Quality_Checks.py` | Contrôles qualité Spark natif |
 
+<table>
+  <tr>
+    <td><img src="assets/11_databricks-notebook-silver-layer.png" height="280"/></td>
+    <td><img src="assets/09_databricks-pipeline-dag.png" height="280"/></td>
+    <td><img src="assets/10_databricks-pipeline-tasks.png" height="280"/></td>
+    <td><img src="assets/12_azure-storage-gold-tables.png" height="280"/></td>
+    <td><img src="assets/13_silver-mesures-donnees-paris.png" height="280"/></td>
+  </tr>
+</table>
+
 ### 4. Orchestration (optionnel)
 
 Créer le workflow Databricks `Pipeline_Qualite_Eau_Complet` (schedule quotidien 2h00 Paris) :
@@ -107,6 +107,16 @@ python scripts/api_qualite_eau.py
 | `GET /parametres` | Paramètres analysés (nitrates, pH, bactéries…) |
 | `GET /mesures/stats` | Statistiques globales des mesures |
 | `GET /conformite/stats` | Taux de conformité global PC + bactériologique |
+
+<table>
+  <tr>
+    <td><img src="assets/04_api-swagger-overview.png" height="280"/></td>
+    <td><img src="assets/07_api-conformite-stats-reponse.png" height="280"/></td>
+    <td><img src="assets/06_api-departements-top-reponse.png" height="280"/></td>
+    <td><img src="assets/08_api-parametres-liste.png" height="280"/></td>
+    <td><img src="assets/05_api-conformite-stats-erreur-503.png" height="280"/></td>
+  </tr>
+</table>
 
 ---
 
