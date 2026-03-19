@@ -197,7 +197,7 @@ sequenceDiagram
 ### Bronze — données brutes Hub'Eau
 
 ```mermaid
-%%{init: {'er': {'layoutDirection': 'LR'}}}%%
+%%{init: {"er": {"layoutDirection": "LR"}} }%%
 erDiagram
     bronze_communes {
         string code_commune PK
@@ -228,7 +228,7 @@ erDiagram
 ### Silver — données nettoyées et standardisées
 
 ```mermaid
-%%{init: {'er': {'layoutDirection': 'LR'}}}%%
+%%{init: {"er": {"layoutDirection": "LR"}} }%%
 erDiagram
     silver_communes {
         string commune_code PK
@@ -265,7 +265,7 @@ erDiagram
 ### Gold — star schema analytique
 
 ```mermaid
-%%{init: {'er': {'layoutDirection': 'LR'}}}%%
+%%{init: {"er": {"layoutDirection": "LR"}} }%%
 erDiagram
     dim_communes {
         string commune_code PK
