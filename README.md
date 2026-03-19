@@ -10,6 +10,20 @@ Projet d'apprentissage data engineering pour se familiariser avec Azure Databric
 
 ---
 
+## Sommaire
+
+- [Reproduire le projet](#reproduire-le-projet)
+  - [1. Dépendances](#1-dépendances)
+  - [2. Infrastructure Azure](#2-infrastructure-azure)
+  - [3. Notebooks Databricks](#3-notebooks-databricks)
+  - [4. Orchestration (optionnel)](#4-orchestration-optionnel)
+  - [5. API REST (optionnel)](#5-api-rest-optionnel)
+- [Architecture](#architecture)
+- [Schéma des données](#schéma-des-données)
+- [Commandes utiles](#commandes-utiles)
+
+---
+
 ## Reproduire le projet
 
 **Prérequis :** Python 3.13+ ([uv](https://github.com/astral-sh/uv)), Azure CLI, Terraform, Workspace Databricks avec secret scope `azure-credentials` (`storage-account-name`, `datalake-access-key`).
