@@ -24,6 +24,26 @@ Projet d'apprentissage data engineering pour se familiariser avec Azure Databric
 
 ---
 
+<table>
+  <tr>
+    <td><img src="assets/01_app-carte-france-conformite.png" height="220"/></td>
+    <td><img src="assets/02_app-carte-nord-lille.png" height="220"/></td>
+    <td><img src="assets/03_app-graphiques-conformite-lille.png" height="220"/></td>
+    <td><img src="assets/04_api-swagger-overview.png" height="220"/></td>
+    <td><img src="assets/05_api-conformite-stats-erreur-503.png" height="220"/></td>
+    <td><img src="assets/06_api-departements-top-reponse.png" height="220"/></td>
+    <td><img src="assets/07_api-conformite-stats-reponse.png" height="220"/></td>
+    <td><img src="assets/08_api-parametres-liste.png" height="220"/></td>
+    <td><img src="assets/09_databricks-pipeline-dag.png" height="220"/></td>
+    <td><img src="assets/10_databricks-pipeline-tasks.png" height="220"/></td>
+    <td><img src="assets/11_databricks-notebook-silver-layer.png" height="220"/></td>
+    <td><img src="assets/12_azure-storage-gold-tables.png" height="220"/></td>
+    <td><img src="assets/13_silver-mesures-donnees-paris.png" height="220"/></td>
+  </tr>
+</table>
+
+---
+
 ## Reproduire le projet
 
 **Prérequis :** Python 3.13+ ([uv](https://github.com/astral-sh/uv)), Azure CLI, Terraform, Workspace Databricks avec secret scope `azure-credentials` (`storage-account-name`, `datalake-access-key`).
