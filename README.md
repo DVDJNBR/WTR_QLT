@@ -197,67 +197,67 @@ sequenceDiagram
 ### Bronze — données brutes Hub'Eau
 
 ```mermaid
-%%{init: {"er": {"layoutDirection": "LR"}} }%%
-erDiagram
-    bronze_communes {
-        string code_commune PK
-        string nom_commune
-        string code_reseau
-        string nom_reseau
-        string code_departement
+classDiagram
+    direction LR
+    class bronze_communes {
+        +String code_commune PK
+        +String nom_commune
+        +String code_reseau
+        +String nom_reseau
+        +String code_departement
     }
-    bronze_analyses {
-        string code_prelevement PK
-        string code_commune FK
-        string code_departement
-        string date_prelevement
-        string code_parametre
-        string libelle_parametre
-        double resultat_numerique
-        string libelle_unite
-        string conformite_limites_pc_prelevement
-        string conformite_limites_bact_prelevement
-        string conclusion_conformite_prelevement
-        timestamp ingestion_timestamp
-        string source
-        int year
+    class bronze_analyses {
+        +String code_prelevement PK
+        +String code_commune FK
+        +String code_departement
+        +String date_prelevement
+        +String code_parametre
+        +String libelle_parametre
+        +Double resultat_numerique
+        +String libelle_unite
+        +String conformite_limites_pc
+        +String conformite_limites_bact
+        +String conclusion_conformite
+        +Timestamp ingestion_timestamp
+        +String source
+        +Int year
     }
-    bronze_communes ||--o{ bronze_analyses : "code_commune"
+    bronze_communes "1" --> "0..*" bronze_analyses : code_commune
 ```
 
 ### Silver — données nettoyées et standardisées
 
 ```mermaid
-%%{init: {"er": {"layoutDirection": "LR"}} }%%
-erDiagram
-    silver_communes {
-        string commune_code PK
-        string commune_name
-        string department_code
+classDiagram
+    direction LR
+    class silver_communes {
+        +String commune_code PK
+        +String commune_name
+        +String department_code
     }
-    silver_mesures {
-        string sampling_id PK
-        string commune_code FK
-        string department_code
-        timestamp sampling_date
-        int sampling_year
-        string parameter_code
-        string parameter_name
-        double numeric_result
-        string unit
+    class silver_mesures {
+        +String sampling_id PK
+        +String commune_code FK
+        +String department_code
+        +Timestamp sampling_date
+        +Int sampling_year
+        +String parameter_code
+        +String parameter_name
+        +Double numeric_result
+        +String unit
     }
-    silver_conformite {
-        string sampling_id PK
-        timestamp sampling_date
-        int sampling_year
-        string department_code
-        string parameter_code
-        boolean is_compliant_pc
-        boolean is_compliant_bact
-        string global_conclusion
+    class silver_conformite {
+        +String sampling_id PK
+        +Timestamp sampling_date
+        +Int sampling_year
+        +String department_code
+        +String parameter_code
+        +Boolean is_compliant_pc
+        +Boolean is_compliant_bact
+        +String global_conclusion
     }
-    silver_communes ||--o{ silver_mesures : "commune_code"
-    silver_mesures ||--|| silver_conformite : "sampling_id"
+    silver_communes "1" --> "0..*" silver_mesures : commune_code
+    silver_mesures "1" --> "1" silver_conformite : sampling_id
 ```
 
 > Partitionnement Delta : `silver_mesures` et `silver_conformite` sont partitionnées par `sampling_year` / `department_code`.
@@ -265,51 +265,51 @@ erDiagram
 ### Gold — star schema analytique
 
 ```mermaid
-%%{init: {"er": {"layoutDirection": "LR"}} }%%
-erDiagram
-    dim_communes {
-        string commune_code PK
-        string commune_name
-        string department_code
+classDiagram
+    direction LR
+    class dim_communes {
+        +String commune_code PK
+        +String commune_name
+        +String department_code
     }
-    dim_parametres {
-        string parameter_code PK
-        string parameter_name
-        string unit
+    class dim_parametres {
+        +String parameter_code PK
+        +String parameter_name
+        +String unit
     }
-    dim_temps {
-        int date_key PK
-        date sampling_date
-        int year
-        int month
-        int quarter
-        int day_of_week
+    class dim_temps {
+        +Int date_key PK
+        +Date sampling_date
+        +Int year
+        +Int month
+        +Int quarter
+        +Int day_of_week
     }
-    factmesuresqualite {
-        string sampling_id PK
-        string commune_code FK
-        string parameter_code FK
-        int date_key FK
-        double numeric_result
+    class factmesuresqualite {
+        +String sampling_id PK
+        +String commune_code FK
+        +String parameter_code FK
+        +Int date_key FK
+        +Double numeric_result
     }
-    factconformite {
-        string sampling_id PK
-        string parameter_code FK
-        int date_key FK
-        boolean is_compliant_pc
-        boolean is_compliant_bact
+    class factconformite {
+        +String sampling_id PK
+        +String parameter_code FK
+        +Int date_key FK
+        +Boolean is_compliant_pc
+        +Boolean is_compliant_bact
     }
-    agg_conformite_departement {
-        string department_code PK
-        int total_tests
-        int compliant_tests
-        double compliance_rate
+    class agg_conformite_departement {
+        +String department_code PK
+        +Int total_tests
+        +Int compliant_tests
+        +Double compliance_rate
     }
-    dim_communes ||--o{ factmesuresqualite : "commune_code"
-    dim_parametres ||--o{ factmesuresqualite : "parameter_code"
-    dim_temps ||--o{ factmesuresqualite : "date_key"
-    dim_parametres ||--o{ factconformite : "parameter_code"
-    dim_temps ||--o{ factconformite : "date_key"
+    dim_communes "1" --> "0..*" factmesuresqualite : commune_code
+    dim_parametres "1" --> "0..*" factmesuresqualite : parameter_code
+    dim_temps "1" --> "0..*" factmesuresqualite : date_key
+    dim_parametres "1" --> "0..*" factconformite : parameter_code
+    dim_temps "1" --> "0..*" factconformite : date_key
 ```
 
 ---
