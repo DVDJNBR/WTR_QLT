@@ -12,6 +12,7 @@ Projet d'apprentissage data engineering pour se familiariser avec Azure Databric
 
 ## Sommaire
 
+- [Dashboard d'analyse](#dashboard-danalyse)
 - [Reproduire le projet](#reproduire-le-projet)
   - [1. Dépendances](#1-dépendances)
   - [2. Infrastructure Azure](#2-infrastructure-azure)
@@ -23,6 +24,10 @@ Projet d'apprentissage data engineering pour se familiariser avec Azure Databric
 - [Commandes utiles](#commandes-utiles)
 
 ---
+
+## Dashboard d'analyse
+
+**[qlt-eau-fr-24.dvdjnbr.fr](https://qlt-eau-fr-24.dvdjnbr.fr/)** — carte choroplèthe interactive de la conformité de l'eau potable par département, avec zoom commune et graphiques physico-chimiques / bactériologiques.
 
 <table>
   <tr>
